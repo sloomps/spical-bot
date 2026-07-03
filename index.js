@@ -2,7 +2,7 @@ require('dotenv').config();
 const { Client, GatewayIntentBits, Collection, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, TextInputBuilder, TextInputStyle, ModalBuilder, ChannelType, PermissionFlagsBits, StringSelectMenuBuilder } = require('discord.js');
 const mongoose = require('mongoose');
 const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
-const ytdl = require('library-ytdl-core'); // أو مكتبة التشغيل الصالحة لديك
+const ytdl = require('@distube/ytdl-core'); // تم التحديث إلى المكتبة الصحيحة المتوافقة مع ريلواي
 
 const client = new Client({
     intents: [
@@ -128,7 +128,7 @@ client.once('ready', async () => {
         { name: 'فحص-الحصانة', description: '👑 فحص وتأكيد تفعيل جدار الحصانة المطلقة الخاص بمالك البوت' },
         { name: 'سجن-الرتبة', description: '⛔ منع رتبة كاملة من الكتابة في جميع رومات السيرفر النصية (بلاك ليست/سجن)', options: [{ name: 'الرتبة', description: 'اختر الرتبة المستهدفة لحظرها من الكتابة', type: 8, required: true }] },
 
-        // 🆕 الأوامر الجديدة المضافة بطلبك
+        // الأوامر الجديدة المضافة
         { name: 'قول', description: '🗣️ تجعل البوت يكرر الكلام الذي تكتبه خلفه بالكامل', options: [{ name: 'النص', description: 'اكتب الرسالة التي تريد من البوت قولها', type: 3, required: true }] },
         { name: 'تثبيت-الاقتراحات', description: '📌 تحديد القناة النصية المخصصة لاستقبال اقتراحات الأعضاء وإعدادها', options: [{ name: 'القناة', description: 'اختر روم الاقتراحات', type: 7, required: true }] },
         { name: 'اقتراح', description: '💡 تقديم اقتراح جديد ليتم إرساله وتصويت الأعضاء عليه بنظام متطور', options: [{ name: 'الاقتراح', description: 'اكتب تفاصيل اقتراحك هنا ليراه الجميع', type: 3, required: true }] },
@@ -174,7 +174,7 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         const adminCommands = ['قفل-شامل', 'فتح-شامل', 'رتبة-للجميع', 'سحب-من-الجميع', 'تشغيل-مضاد-الهجمات', 'إيقاف-مضاد-الهجمات', 'منع-البوتات', 'سماح-البوتات', 'تحديث-البوت', 'تعيين-رتبة-الادارة', 'تعيين-رتبة-المشرفين', 'تعيين-رتبة-الدعم', 'تصفير-التحذيرات', 'تثبيت-قناة-المستويات', 'سجن-الرتبة', 'تثبيت-الاقتراحات'];
-        const modCommands = ['حظر', 'فك-الحظر', 'طرد', 'كتم', 'فك-الكتم', 'مسح', 'تحذير', 'مسح-التحذيرات', 'قفل', 'فتح', 'الوضع-البطيء', 'إضافة-رتبة', 'إزالة-رتبة', 'اسم-مستعار', 'تطهير', 'إخفاء', 'إظهار', 'رتبة-مؤقتة', 'كتم-الرتبة', 'تحدث-الرتبة', 'تجريد-الرتب', 'حظر-جماعي', 'حظر-ناعم', 'إنشاء-رتبة', 'حذف-رتبة', 'إنشاء-قناة', 'حذف-قناة', 'تبطئة-الكل', 'إلغاء-تبطئة-الكل', 'حجر-صحي', 'فك-الحجر', 'تنظيف-البوتات', 'عرض-صلاحيات', 'قفل-الصوتي', 'فتح-الصوتي', 'كتم-الصوتي', 'فك-كتم-الصوتي', 'تعطيل-السماعة', 'تفعيل-السماعة', 'فصل-الصوتي', 'تبطئة-الصوتي', 'حدد-الصوتي', 'إخفاء-الصوتي', 'إظهار-الصوتي', 'إلغاء-التبطئة', 'مسح-رسائل-البوتات', 'استنساخ-القناة', 'قول'];
+        const modCommands = ['حظر', 'فك-الحظر', 'طرد', 'كتم', 'فك-الكتم', 'مسح', 'تحذير', 'مسح-التحذيرات', 'قفل', 'فتح', 'الوضع-البطيء', 'إضافة-رتبة', 'إزالة-رتبة', 'اسم-مستعار', 'تطهير', 'إخفاء', 'إظهار', 'رتبة-مؤقتة', 'كتم-الرتبة', 'تحدث-الرتبة', 'تجريد-الرتب', 'حظر-جماعي', 'حظر-ناعم', 'إنشاء-رتبة', 'حذف-رتبة', 'إنشاء-قناة', 'حذف-قناة', 'تبطئة-الكل', 'إلغاء-تبطئة-الكل', 'حجر-صحي', 'فك-الحجر', 'تنظيف-البوتات', 'عرض-صلاحيات', 'قفل-الصوتي', 'فتح-الصوتي', 'كتم-الصوتي', 'فك-كتم-الصوتي', 'تعطيل-السماعة', 'تفعيل-السماعة', 'فصل-الصوتي', 'تبطئة-الصوتي', 'حدد-الصوتي', 'إخفاء-الصوتي', 'إظهار-الصوتي', 'إلغاء-التباطئة', 'مسح-رسائل-البوتات', 'استنساخ-القناة', 'قول'];
 
         if (adminCommands.includes(commandName) && !isAdmin) {
             return interaction.reply({ content: '❌ هذا الأمر مخصص فقط لرتبة الإدارة العليا (Admin Role) أو مالك البوت.', ephemeral: true });
@@ -206,7 +206,7 @@ client.on('interactionCreate', async (interaction) => {
         if (commandName === 'سجن-الرتبة') {
             const targetRole = options.getRole('الرتبة');
             if (targetRole.id === guild.roles.everyone.id) return interaction.reply({ content: '❌ لا يمكنك تطبيق البلاك ليست على رتبة everyone@ بالكامل.', ephemeral: true });
-            await interaction.reply(`⏳ جاري تطبيق نظام البلاك ليست على رتبة ${targetRole} في كافة الرومات النصية...`);
+            await interaction.reply(`⏳ جاري تطبيق نظام البلاك ليست على رتبة ${targetRole} in كافة الرومات النصية...`);
             let successfulChannels = 0;
             guild.channels.cache.forEach(async (ch) => {
                 if (ch.type === ChannelType.GuildText) {
@@ -219,7 +219,7 @@ client.on('interactionCreate', async (interaction) => {
             return interaction.followUp(`⛔ تم وضع رتبة ${targetRole} في البلاك ليست بنجاح. يمكنهم الآن رؤية الرومات فقط ولكن لا يمكنهم الكتابة أو التفاعل.`);
         }
 
-        // 🆕 تنفيذ الأوامر الجديدة
+        // تنفيذ الأوامر المضافة حديثاً
         if (commandName === 'قول') {
             const text = options.getString('النص');
             await interaction.reply({ content: '✅ تم الإرسال بنجاح.', ephemeral: true });
@@ -384,9 +384,7 @@ client.on('interactionCreate', async (interaction) => {
             const chan = options.getChannel('القناة'); if (chan.type !== ChannelType.GuildVoice) return interaction.reply({ content: '❌ اختر روم صوتي فقط.', ephemeral: true });
             await chan.permissionOverwrites.edit(guild.roles.everyone, { ViewChannel: true }); await interaction.reply(`👀 تم إظهار الروم الصوتي ${chan} بنجاح.`);
         }
-        if (commandName === 'تصفير-التحذيرات') {
-            dbData.moderation.warns = []; await dbData.save(); await interaction.reply('🧼 تم مسح جميع التحذيرات المسجلة لكافة أعضاء السيرفر بالكامل بنجاح!');
-        }
+        if (commandName === 'تصفير-التحذيرات') { dbData.moderation.warns = []; await dbData.save(); await interaction.reply('🧼 تم مسح جميع التحذيرات المسجلة لكافة أعضاء السيرفر بالكامل بنجاح!'); }
         if (commandName === 'حظر-مؤقت') {
             const target = options.getMember('العضو'); const hours = options.getInteger('المدة'); const reason = options.getString('السبب') || 'حظر مؤقت';
             if (!target.bannable) return interaction.reply({ content: '❌ لا يمكن حظر هذا العضو.', ephemeral: true });
