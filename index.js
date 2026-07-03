@@ -1,27 +1,32 @@
-const { Client, GatewayIntentBits, Collection } = require('discord.js');
-const fs = require('fs');
-const path = require('path');
-const { token } = require('./config.json');
+const { Client, GatewayIntentBits, Collection, EmbedBuilder } = require('discord.js');
+const mongoose = require('mongoose');
+require('dotenv').config();
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildMembers,
+        GatewayIntentBits.GuildPresences
+    ]
+});
 
 client.commands = new Collection();
 
-// قراءة الأوامر تلقائياً من المجلدات
-const foldersPath = path.join(__dirname, 'commands');
-const commandFolders = fs.readdirSync(foldersPath);
+// الاتصال بقاعدة بيانات MongoDB (أساسي للأنظمة الضخمة)
+mongoose.connect(process.env.MONGO_URI)
+    .then(() => console.log('✅ تم الاتصال بقاعدة البيانات بنجاح!'))
+    .catch((err) => console.error('❌ فشل الاتصال بقاعدة البيانات:', err));
 
-for (const folder of commandFolders) {
-	const commandsPath = path.join(foldersPath, folder);
-	const commandFiles = fs.readdirSync(commandsPath).filter(file => file.endsWith('.js'));
-	for (const file of commandFiles) {
-		const filePath = path.join(commandsPath, file);
-		const command = require(filePath);
-		if ('data' in command && 'execute' in command) {
-			client.commands.set(command.data.name, command);
-		}
-	}
-}
+// تشغيل معالجات الأوامر والأحداث (Handlers)
+['commands', 'events'].forEach(handler => {
+    require(`./handlers/${handler}`)(client);
+});
 
-// تشغيل البوت
-client.login(token);
+// التعامل مع الأخطاء لضمان عدم توقف البوت على Railway
+process.on('unhandledRejection', error => {
+    console.error('[خطأ غير معالج]:', error);
+});
+
+client.login(process.env.TOKEN);
