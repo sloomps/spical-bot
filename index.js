@@ -87,7 +87,7 @@ client.once('ready', async () => {
         { name: 'مسح-التحذيرات', description: '🧼 مسح جميع تحذيرات عضو', options: [{ name: 'العضو', description: 'العضو', type: 6, required: true }] },
         { name: 'قفل', description: '🔒 قفل الروم الحالي لمنع الكتابة' },
         { name: 'فتح', description: '🔓 فتح الروم الحالي للسماح بالكتابة' },
-        { name: 'الوضع-البطيء', description: '⏳ وضع وقت انتظار للرسائل في الروم', options: [{ name: 'الثواني', description: 'عدد الثواني', type: 4, required: true }] },
+        { name: 'الوضع-البطيء', description: '⏳ وضع وقت انتظار للرسائل in الروم', options: [{ name: 'الثواني', description: 'عدد الثواني', type: 4, required: true }] },
         { name: 'إضافة-رتبة', description: '➕ إعطاء رتبة لعضو', options: [{ name: 'العضو', description: 'العضو', type: 6, required: true }, { name: 'الرتبة', description: 'الرتبة', type: 8, required: true }] },
         { name: 'إزالة-رتبة', description: '➖ سحب رتبة من عضو', options: [{ name: 'العضو', description: 'العضو', type: 6, required: true }, { name: 'الرتبة', description: 'الرتبة', type: 8, required: true }] },
         { name: 'اسم-مستعار', description: '🏷️ تغيير اسم عضو مستعار بقناة الشات', options: [{ name: 'العضو', description: 'العضو', type: 6, required: true }, { name: 'الاسم', description: 'الاسم الجديد', type: 3, required: true }] },
@@ -120,7 +120,7 @@ client.once('ready', async () => {
         { name: 'فتح-الصوتي', description: '🔓 فتح الروم الصوتي الحالي للسماح بالدخول', options: [{ name: 'القناة', description: 'اختر الروم الصوتي', type: 7, required: true }] },
         { name: 'كتم-الصوتي', description: '🔇 كتم صوت العضو داخل الروم الصوتي بالكامل', options: [{ name: 'العضو', description: 'العضو المستهدف', type: 6, required: true }] },
         { name: 'فك-كتم-الصوتي', description: '🔊 إلغاء كتم صوت العضو داخل الروم الصوتي', options: [{ name: 'العضو', description: 'العضو المستهدف', type: 6, required: true }] },
-        { name: 'تعطيل-السماعة', description: '🎧 تعطيل سماع العضو (Deafen) in الرومات الصوتية', options: [{ name: 'العضو', description: 'العضو المستهدف', type: 6, required: true }] },
+        { name: 'تعطيل-السماعة', description: '🎧 تعطيل سماع العضو (Deafen) في الرومات الصوتية', options: [{ name: 'العضو', description: 'العضو المستهدف', type: 6, required: true }] },
         { name: 'تفعيل-السماعة', description: '🎵 إعادة تفعيل سماع العضو في الروم الصوتي', options: [{ name: 'العضو', description: 'العضو المستهدف', type: 6, required: true }] },
         { name: 'فصل-الصوتي', description: '🚫 طرد عضو محدد وفصله من الروم الصوتي الحالي فوراً', options: [{ name: 'العضو', description: 'العضو المستهدف', type: 6, required: true }] },
         { name: 'تبطئة-الصوتي', description: '⏳ تفعيل وضع التباطؤ لإرسال الكلمات بالروم الصوتي', options: [{ name: 'القناة', description: 'الروم الصوتي', type: 7, required: true }, { name: 'الثواني', description: 'عدد الثواني', type: 4, required: true }] },
@@ -171,12 +171,13 @@ client.on('interactionCreate', async (interaction) => {
     if (interaction.isChatInputCommand()) {
         const { commandName, options, guild, member, channel, user } = interaction;
 
-        // جلب البيانات أو تهيئتها لضمان عدم وجود undefined
-        let dbData = await GuildData.findOne({ guildID: guild.id });
-        if (!dbData) {
-            dbData = new GuildData({ guildID: guild.id, settings: {} });
-            await dbData.save();
-        }
+        // جلب البيانات أو تهيئتها لضمان عدم وجود undefined وحفظ أيدي السيرفر بشكل دائم
+        let dbData = await GuildData.findOneAndUpdate(
+            { guildID: guild.id },
+            { $setOnInsert: { guildID: guild.id, settings: {} } },
+            { upsert: true, new: true }
+        );
+
         if (!dbData.settings) dbData.settings = {};
 
         const botAdminRoleID = dbData.settings.botAdminRoleID;
@@ -202,23 +203,31 @@ client.on('interactionCreate', async (interaction) => {
             return interaction.reply({ content: '❌ هذا الأمر مخصص للمشرفين (Mod Role) فما فوق.', ephemeral: true });
         }
 
-        // أمر تثبيت الاقتراحات مع تعديل الحفظ المباشر والأكيد بقاعدة البيانات
+        // 📌 [تحديث جذري ومضمون] أمر تثبيت الاقتراحات وقفل التعديلات بقاعدة البيانات
         if (commandName === 'تثبيت-الاقتراحات') {
             const sugChan = options.getChannel('القناة');
             if (sugChan.type !== ChannelType.GuildText) return interaction.reply({ content: '❌ يرجى اختيار روم نصي.', ephemeral: true });
             
             await GuildData.findOneAndUpdate(
                 { guildID: guild.id },
-                { $set: { 'settings.suggestionChannelID': sugChan.id } },
-                { upsert: true }
+                { 
+                    $set: { 
+                        guildID: guild.id,
+                        'settings.suggestionChannelID': sugChan.id 
+                    } 
+                },
+                { upsert: true, new: true }
             );
 
             return interaction.reply({ content: `✅ تم تثبيت روم الاقتراحات بنجاح في: ${sugChan}`, ephemeral: true });
         }
 
-        // أمر إرسال إمبيد الزر الثابت الخاص بالاقتراحات (جلب مباشر ومضمون)
+        // 📌 [تحديث جذري ومضمون] أمر إرسال إمبيد الزر الثابت الخاص بالاقتراحات
         if (commandName === 'إرسال-إمبيد-الاقتراحات') {
-            const freshData = await GuildData.findOne({ guildID: guild.id });
+            let freshData = await GuildData.findOne({ guildID: guild.id });
+            if (!freshData) {
+                freshData = await GuildData.create({ guildID: guild.id, settings: {} });
+            }
             const sugChannelID = freshData?.settings?.suggestionChannelID;
 
             if (!sugChannelID) return interaction.reply({ content: '❌ يجب عليك تثبيت وتحديد روم الاقتراحات أولاً باستخدام أمر `/تثبيت-الاقتراحات`.', ephemeral: true });
@@ -243,12 +252,16 @@ client.on('interactionCreate', async (interaction) => {
             return interaction.reply({ content: `✅ تم إرسال إمبيد الاقتراحات بنجاح داخل الروم: ${sugChannel}`, ephemeral: true });
         }
 
+        // 📌 [تحديث جذري ومضمون] أمر كتابة الاقتراح عبر سلاش كوماند المباشر
         if (commandName === 'اقتراح') {
             const sugText = options.getString('الاقتراح');
-            const freshData = await GuildData.findOne({ guildID: guild.id });
+            let freshData = await GuildData.findOne({ guildID: guild.id });
+            if (!freshData) {
+                freshData = await GuildData.create({ guildID: guild.id, settings: {} });
+            }
             const sugChannelID = freshData?.settings?.suggestionChannelID;
 
-            if (!sugChannelID) return interaction.reply({ content: '❌ لم يتم ضبط وتثبيت روم الاقتراحات بعد.', ephemeral: true });
+            if (!sugChannelID) return interaction.reply({ content: '❌ لم يتم ضبط وتثبيت روم الاقتراحات بعد. يرجى استخدام أمر `/تثبيت-الاقتراحات` أولاً.', ephemeral: true });
             const sugChannel = guild.channels.cache.get(sugChannelID);
             if (!sugChannel) return interaction.reply({ content: '❌ روم الاقتراحات غير موجود أو صلاحيات البوت ناقصة لتعديله.', ephemeral: true });
 
@@ -288,7 +301,7 @@ client.on('interactionCreate', async (interaction) => {
                     try { await ch.permissionOverwrites.edit(targetRole, { SendMessages: false, AddReactions: false }); } catch (err) { }
                 }
             });
-            return interaction.followUp(`⛔ تم وضع رتبة ${targetRole} in البلاك ليست بنجاح.`);
+            return interaction.followUp(`⛔ تم وضع رتبة ${targetRole} في البلاك ليست بنجاح.`);
         }
 
         if (commandName === 'قول') {
@@ -613,7 +626,7 @@ client.on('interactionCreate', async (interaction) => {
         if (commandName === 'تشغيل-مضاد-الهجمات') { globalAntiRaid = true; await interaction.reply('🚨 تم تفعيل جدار الحماية الأقصى ومنع الزوار الجدد.'); }
         if (commandName === 'إيقاف-مضاد-الهجمات') { globalAntiRaid = false; await interaction.reply('🟢 تم إيقاف وضع الحماية المطلقة والعودة للوضع المستقر.'); }
         if (commandName === 'معلومات-السيرفر') {
-            const embed = new EmbedBuilder().setTitle(`📊 التقرير الأمني لـ ${guild.name}`).addFields({ name: '👥 الأعضاء الإجمالي:', value: `\`${guild.memberCount}\``, inline: true }, { name: '🔒 مستوى التحقق:', value: `\`المستوى ${guild.verificationLevel}\``, inline: true }, { name: '🛡️ وضع Anti-Raid:', value: `\`${globalAntiRaid ? '🔴 نشط' : '🟢 مستقر'}\``, inline: true }).setColor('#9b59b6').setTimestamp(); await interaction.reply({ embeds: [embed] });
+            const embed = new EmbedBuilder().setTitle(`📊 التقرير الأمني لـ ${guild.name}`).addFields({ name: '👥 الأعضاء الإجمالي:', value: `\`${guild.memberCount}\``, inline: true }, { name: '🔒 مستوى التحقق:', value: `\`المستوى ${guild.verificationLevel}\``, inline: true }, { name: '🛡️ وضع Anti-Raid:', value: `\`${globalAntiRaid ? '🔴 active' : '🟢 مستقر'}\``, inline: true }).setColor('#9b59b6').setTimestamp(); await interaction.reply({ embeds: [embed] });
         }
     }
 
@@ -677,14 +690,18 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     if (interaction.isModalSubmit()) {
+        // 📌 [تحديث جذري ومضمون] نظام معالجة المودال للتأكد التام من قراءة المعرف من قاعدة البيانات
         if (interaction.customId === 'submit_suggestion_modal') {
             const sugText = interaction.fields.getTextInputValue('suggestion_field');
             let freshData = await GuildData.findOne({ guildID: interaction.guild.id });
+            if (!freshData) {
+                freshData = await GuildData.create({ guildID: interaction.guild.id, settings: {} });
+            }
             const sugChannelID = freshData?.settings?.suggestionChannelID;
             
-            if (!sugChannelID) return interaction.reply({ content: '❌ لم يتم العثور على روم الاقتراحات في النظام.', ephemeral: true });
+            if (!sugChannelID) return interaction.reply({ content: '❌ لم يتم العثور على روم الاقتراحات في النظام. يرجى تثبيتها أولاً.', ephemeral: true });
             const sugChannel = interaction.guild.channels.cache.get(sugChannelID);
-            if (!sugChannel) return interaction.reply({ content: '❌ روم الاقتراحات المعتمد غير موجود أو تم حذفه وصلاحيات البوت بحاجة لفحص.', ephemeral: true });
+            if (!sugChannel) return interaction.reply({ content: '❌ روم الاقتراحات المعتمد غير موجود بالسيرفر أو تم حذفه، وصلاحيات البوت بحاجة لفحص.', ephemeral: true });
 
             await interaction.reply({ content: '✅ تم استلام اقتراحك ونشره في روم الاقتراحات بنجاح لتصويت الأعضاء عليه!', ephemeral: true });
 
