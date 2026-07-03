@@ -87,7 +87,7 @@ client.once('ready', async () => {
         { name: 'مسح-التحذيرات', description: '🧼 مسح جميع تحذيرات عضو', options: [{ name: 'العضو', description: 'العضو', type: 6, required: true }] },
         { name: 'قفل', description: '🔒 قفل الروم الحالي لمنع الكتابة' },
         { name: 'فتح', description: '🔓 فتح الروم الحالي للسماح بالكتابة' },
-        { name: 'الوضع-البطيء', description: '⏳ وضع وقت انتظار للرسائل in الروم', options: [{ name: 'الثواني', description: 'عدد الثواني', type: 4, required: true }] },
+        { name: 'الوضع-البطيء', description: '⏳ وضع وقت انتظار للرسائل في الروم', options: [{ name: 'الثواني', description: 'عدد الثواني', type: 4, required: true }] },
         { name: 'إضافة-رتبة', description: '➕ إعطاء رتبة لعضو', options: [{ name: 'العضو', description: 'العضو', type: 6, required: true }, { name: 'الرتبة', description: 'الرتبة', type: 8, required: true }] },
         { name: 'إزالة-رتبة', description: '➖ سحب رتبة من عضو', options: [{ name: 'العضو', description: 'العضو', type: 6, required: true }, { name: 'الرتبة', description: 'الرتبة', type: 8, required: true }] },
         { name: 'اسم-مستعار', description: '🏷️ تغيير اسم عضو مستعار بقناة الشات', options: [{ name: 'العضو', description: 'العضو', type: 6, required: true }, { name: 'الاسم', description: 'الاسم الجديد', type: 3, required: true }] },
@@ -129,7 +129,7 @@ client.once('ready', async () => {
         { name: 'إظهار-الصوتي', description: '👀 إظهار الروم الصوتي المخفي للأعضاء في السيرفر', options: [{ name: 'القناة', description: 'الروم الصوتي', type: 7, required: true }] },
         { name: 'تصفير-التحذيرات', description: '🧼 مسح كافة التحذيرات المسجلة لجميع أعضاء السيرفر نهائياً' },
         { name: 'حظر-مؤقت', description: '⏳ حظر مؤقت لعضو من السيرفر يزول تلقائياً بعد الوقت المحدد', options: [{ name: 'العضو', description: 'العضو', type: 6, required: true }, { name: 'المدة', description: 'المدة بالساعات', type: 4, required: true }, { name: 'السبب', description: 'السبب', type: 3 }] },
-        { name: 'إلغاء-التباطئة', description: '🛑 إيقاف وضع التباطؤ تماماً في الروم الحالي الحالي دون انتظار' },
+        { name: 'إلغاء-التباطئة', description: '🛑 إيقاف وضع التباطؤ تماماً في الروم الحالي دون انتظار' },
         { name: 'رتبة-للجميع', description: '👥 إعطاء رتبة معينة لجميع أعضاء السيرفر دفعة واحدة (للأدمن)', options: [{ name: 'الرتبة', description: 'الرتبة المراد توزيعها', type: 8, required: true }] },
         { name: 'سحب-من-الجميع', description: '🚫 سحب رتبة معينة من جميع أعضاء السيرفر دفعة واحدة بشكل جماعي', options: [{ name: 'الرتبة', description: 'الرتبة المراد سحبها', type: 8, required: true }] },
         { name: 'استنساخ-القناة', description: '📑 استنساخ الروم الحالي بنفس الاسم والإعدادات والصلاحيات تماماً' },
@@ -161,7 +161,7 @@ client.once('ready', async () => {
 async function sendLog(guild, embed, files = []) {
     try {
         const data = await GuildData.findOne({ guildID: guild.id });
-        if (!data || !data.settings.logChannelID) return;
+        if (!data || !data.settings || !data.settings.logChannelID) return;
         const logChannel = guild.channels.cache.get(data.settings.logChannelID);
         if (logChannel) await logChannel.send({ embeds: [embed], files: files });
     } catch (err) { console.error(err); }
@@ -172,12 +172,10 @@ client.on('interactionCreate', async (interaction) => {
         const { commandName, options, guild, member, channel, user } = interaction;
 
         // جلب البيانات أو تهيئتها لضمان عدم وجود undefined وحفظ أيدي السيرفر بشكل دائم
-        let dbData = await GuildData.findOneAndUpdate(
-            { guildID: guild.id },
-            { $setOnInsert: { guildID: guild.id, settings: {} } },
-            { upsert: true, new: true }
-        );
-
+        let dbData = await GuildData.findOne({ guildID: guild.id });
+        if (!dbData) {
+            dbData = new GuildData({ guildID: guild.id, settings: {} });
+        }
         if (!dbData.settings) dbData.settings = {};
 
         const botAdminRoleID = dbData.settings.botAdminRoleID;
@@ -203,35 +201,33 @@ client.on('interactionCreate', async (interaction) => {
             return interaction.reply({ content: '❌ هذا الأمر مخصص للمشرفين (Mod Role) فما فوق.', ephemeral: true });
         }
 
-        // 📌 [تحديث جذري ومضمون] أمر تثبيت الاقتراحات وقفل التعديلات بقاعدة البيانات
+        // 📌 [تحديث جذري ومضمون] تثبيت روم الاقتراحات وإجبار قاعدة البيانات على الإحساس بالتغيير وحفظه
         if (commandName === 'تثبيت-الاقتراحات') {
             const sugChan = options.getChannel('القناة');
             if (sugChan.type !== ChannelType.GuildText) return interaction.reply({ content: '❌ يرجى اختيار روم نصي.', ephemeral: true });
             
-            await GuildData.findOneAndUpdate(
-                { guildID: guild.id },
-                { 
-                    $set: { 
-                        guildID: guild.id,
-                        'settings.suggestionChannelID': sugChan.id 
-                    } 
-                },
-                { upsert: true, new: true }
-            );
+            let guildData = await GuildData.findOne({ guildID: guild.id });
+            if (!guildData) {
+                guildData = new GuildData({ guildID: guild.id });
+            }
+
+            if (!guildData.settings) guildData.settings = {};
+            guildData.settings.suggestionChannelID = sugChan.id;
+
+            guildData.markModified('settings');
+            await guildData.save();
 
             return interaction.reply({ content: `✅ تم تثبيت روم الاقتراحات بنجاح في: ${sugChan}`, ephemeral: true });
         }
 
-        // 📌 [تحديث جذري ومضمون] أمر إرسال إمبيد الزر الثابت الخاص بالاقتراحات
+        // 📌 [تحديث جذري ومضمون] إرسال إمبيد الزر الثابت الخاص بالاقتراحات بعد جلب البيانات بشكل نقي
         if (commandName === 'إرسال-إمبيد-الاقتراحات') {
             let freshData = await GuildData.findOne({ guildID: guild.id });
-            if (!freshData) {
-                freshData = await GuildData.create({ guildID: guild.id, settings: {} });
+            if (!freshData || !freshData.settings || !freshData.settings.suggestionChannelID) {
+                return interaction.reply({ content: '❌ يجب عليك تثبيت وتحديد روم الاقتراحات أولاً باستخدام أمر `/تثبيت-الاقتراحات`.', ephemeral: true });
             }
-            const sugChannelID = freshData?.settings?.suggestionChannelID;
-
-            if (!sugChannelID) return interaction.reply({ content: '❌ يجب عليك تثبيت وتحديد روم الاقتراحات أولاً باستخدام أمر `/تثبيت-الاقتراحات`.', ephemeral: true });
             
+            const sugChannelID = freshData.settings.suggestionChannelID;
             const sugChannel = guild.channels.cache.get(sugChannelID);
             if (!sugChannel) return interaction.reply({ content: '❌ روم الاقتراحات المحدد غير موجود بالسيرفر حالياً أو صلاحيات البوت ناقصة.', ephemeral: true });
 
@@ -256,12 +252,11 @@ client.on('interactionCreate', async (interaction) => {
         if (commandName === 'اقتراح') {
             const sugText = options.getString('الاقتراح');
             let freshData = await GuildData.findOne({ guildID: guild.id });
-            if (!freshData) {
-                freshData = await GuildData.create({ guildID: guild.id, settings: {} });
+            if (!freshData || !freshData.settings || !freshData.settings.suggestionChannelID) {
+                return interaction.reply({ content: '❌ لم يتم ضبط وتثبيت روم الاقتراحات بعد. يرجى استخدام أمر `/تثبيت-الاقتراحات` أولاً.', ephemeral: true });
             }
-            const sugChannelID = freshData?.settings?.suggestionChannelID;
 
-            if (!sugChannelID) return interaction.reply({ content: '❌ لم يتم ضبط وتثبيت روم الاقتراحات بعد. يرجى استخدام أمر `/تثبيت-الاقتراحات` أولاً.', ephemeral: true });
+            const sugChannelID = freshData.settings.suggestionChannelID;
             const sugChannel = guild.channels.cache.get(sugChannelID);
             if (!sugChannel) return interaction.reply({ content: '❌ روم الاقتراحات غير موجود أو صلاحيات البوت ناقصة لتعديله.', ephemeral: true });
 
@@ -274,22 +269,27 @@ client.on('interactionCreate', async (interaction) => {
 
         if (commandName === 'تعيين-رتبة-الادارة') {
             const role = options.getRole('الرتبة');
-            dbData.settings.botAdminRoleID = role.id; await dbData.save();
+            dbData.settings.botAdminRoleID = role.id; 
+            dbData.markModified('settings'); await dbData.save();
             return interaction.reply({ content: `✅ تم تعيين رتبة الإدارة العليا للبوت بنجاح: ${role}`, ephemeral: true });
         }
         if (commandName === 'تعيين-رتبة-المشرفين') {
             const role = options.getRole('الرتبة');
-            dbData.settings.botModRoleID = role.id; await dbData.save();
+            dbData.settings.botModRoleID = role.id; 
+            dbData.markModified('settings'); await dbData.save();
             return interaction.reply({ content: `✅ تم تعيين رتبة المشرفين للبوت بنجاح: ${role}`, ephemeral: true });
         }
         if (commandName === 'تعيين-رتبة-الدعم') {
             const role = options.getRole('الرتبة');
-            dbData.settings.botSupportRoleID = role.id; await dbData.save();
+            dbData.settings.botSupportRoleID = role.id; 
+            dbData.markModified('settings'); await dbData.save();
             return interaction.reply({ content: `✅ تم تعيين رتبة الدعم الفني للبوت بنجاح: ${role}`, ephemeral: true });
         }
         if (commandName === 'تثبيت-قناة-المستويات') {
             const levelChan = options.getChannel('القناة'); if (levelChan.type !== ChannelType.GuildText) return interaction.reply({ content: '❌ اختر قناة نصية.', ephemeral: true });
-            dbData.settings.levelChannelID = levelChan.id; await dbData.save(); return interaction.reply({ content: `✅ تم تحديد قناة إرسال الليفل بنجاح في: ${levelChan}`, ephemeral: true });
+            dbData.settings.levelChannelID = levelChan.id; 
+            dbData.markModified('settings'); await dbData.save(); 
+            return interaction.reply({ content: `✅ تم تحديد قناة إرسال الليفل بنجاح في: ${levelChan}`, ephemeral: true });
         }
         
         if (commandName === 'سجن-الرتبة') {
@@ -445,7 +445,7 @@ client.on('interactionCreate', async (interaction) => {
                     '`/رتبة-للجميع` - إعطاء رتبة معينة لجميع أعضاء السيرفر دفعة واحدة\n' +
                     '`/سحب-من-الجميع` - سحب رتبة معينة من جميع أعضاء السيرفر دفعة واحدة\n' +
                     '`/كتم-الرتبة` - منع رتبة معينة من التحدث في هذا الروم فقط\n' +
-                    '`/تحدث-الرتبة` - إعادة السماح للرتبة بالتحدث في هذا الروم'
+                    '`/تحدث-الرتبة` - إعادة السماح للرتبة بالكتابة في هذا الروم'
                 );
 
             const embed4 = new EmbedBuilder()
@@ -610,7 +610,7 @@ client.on('interactionCreate', async (interaction) => {
         if (commandName === 'حذف-رتبة') { const role = options.getRole('الرتبة'); if (!role.editable) return interaction.reply({ content: '❌ لا يمكن حذف الرتبة.', ephemeral: true }); await role.delete(); await interaction.reply(`🗑️ تم حذف الرتبة نهائياً.`); }
         if (commandName === 'إنشاء-قناة') { const name = options.getString('الاسم'); const type = options.getInteger('النوع'); const newChan = await guild.channels.create({ name, type }); await interaction.reply(`📁 تم إنشاء القناة بنجاح: ${newChan}`); }
         if (commandName === 'حذف-قناة') { const ch = options.getChannel('القناة'); await ch.delete(); await interaction.reply(`🗑️ تم حذف القناة من السيرفر.`); }
-        if (commandName === 'تبطئة-الكل') { guild.channels.cache.forEach(async (ch) => { if (ch.type === ChannelType.GuildText) await ch.setRateLimitPerUser(5).catch(() => {}); }); await interaction.reply('⏳ تم تفعيل وضع التباطؤ العام في السيرفر.'); }
+        if (commandName === 'تبطئة-الكل') { guild.channels.cache.forEach(async (ch) => { if (ch.type === ChannelType.GuildText) await ch.setRateLimitPerUser(5).catch(() => {}); }); await interaction.reply('⏳ تم تفعيل وضع التباطؤ العام in السيرفر.'); }
         if (commandName === 'إلغاء-تبطئة-الكل') { guild.channels.cache.forEach(async (ch) => { if (ch.type === ChannelType.GuildText) await ch.setRateLimitPerUser(0).catch(() => {}); }); await interaction.reply('🛑 تم إلغاء وضع التباطؤ العام.'); }
         if (commandName === 'حجر-صحي') {
             const target = options.getMember('العضو'); let qRole = guild.roles.cache.find(r => r.name.toLowerCase() === 'quarantined');
@@ -672,7 +672,7 @@ client.on('interactionCreate', async (interaction) => {
 
         if (interaction.customId === 'claim_ticket') {
             let dbData = await GuildData.findOne({ guildID: interaction.guild.id });
-            const hasSupport = interaction.member.roles.cache.has(dbData?.settings?.botSupportRoleID) || interaction.member.permissions.has(PermissionFlagsBits.ManageMessages) || interaction.user.id === BOT_OWNER_ID;
+            const hasSupport = dbData?.settings && interaction.member.roles.cache.has(dbData.settings.botSupportRoleID) || interaction.member.permissions.has(PermissionFlagsBits.ManageMessages) || interaction.user.id === BOT_OWNER_ID;
             if (!hasSupport) return interaction.reply({ content: '❌ هذا الزر مخصص لطاقم الدعم الفني فقط.', ephemeral: true });
             
             await interaction.reply({ content: `🔒 تم استلام التذكرة بواسطة المساعد: ${interaction.user}` });
@@ -681,7 +681,7 @@ client.on('interactionCreate', async (interaction) => {
         }
         if (interaction.customId === 'close_ticket') {
             let dbData = await GuildData.findOne({ guildID: interaction.guild.id });
-            const hasSupport = interaction.member.roles.cache.has(dbData?.settings?.botSupportRoleID) || interaction.member.permissions.has(PermissionFlagsBits.ManageMessages) || interaction.user.id === BOT_OWNER_ID;
+            const hasSupport = dbData?.settings && interaction.member.roles.cache.has(dbData.settings.botSupportRoleID) || interaction.member.permissions.has(PermissionFlagsBits.ManageMessages) || interaction.user.id === BOT_OWNER_ID;
             if (!hasSupport) return interaction.reply({ content: '❌ لا يمكنك إغلاق التذكرة، للمشرفين فقط.', ephemeral: true });
 
             await interaction.reply('🔒 جاري أرشفة وإغلاق التذكرة خلال 5 ثوانٍ...');
@@ -690,16 +690,16 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     if (interaction.isModalSubmit()) {
-        // 📌 [تحديث جذري ومضمون] نظام معالجة المودال للتأكد التام من قراءة المعرف من قاعدة البيانات
+        // 📌 [تحديث جذري ومضمون] نظام معالجة المودال وقراءة البيانات بشكل نقي من قاعدة البيانات للتحقق من الروم
         if (interaction.customId === 'submit_suggestion_modal') {
             const sugText = interaction.fields.getTextInputValue('suggestion_field');
             let freshData = await GuildData.findOne({ guildID: interaction.guild.id });
-            if (!freshData) {
-                freshData = await GuildData.create({ guildID: interaction.guild.id, settings: {} });
-            }
-            const sugChannelID = freshData?.settings?.suggestionChannelID;
             
-            if (!sugChannelID) return interaction.reply({ content: '❌ لم يتم العثور على روم الاقتراحات في النظام. يرجى تثبيتها أولاً.', ephemeral: true });
+            if (!freshData || !freshData.settings || !freshData.settings.suggestionChannelID) {
+                return interaction.reply({ content: '❌ لم يتم العثور على روم الاقتراحات في النظام. يرجى تثبيتها أولاً.', ephemeral: true });
+            }
+
+            const sugChannelID = freshData.settings.suggestionChannelID;
             const sugChannel = interaction.guild.channels.cache.get(sugChannelID);
             if (!sugChannel) return interaction.reply({ content: '❌ روم الاقتراحات المعتمد غير موجود بالسيرفر أو تم حذفه، وصلاحيات البوت بحاجة لفحص.', ephemeral: true });
 
@@ -747,6 +747,7 @@ client.on('messageCreate', async (message) => {
     }
 
     let data = await GuildData.findOne({ guildID: message.guild.id }) || new GuildData({ guildID: message.guild.id });
+    if (!data.levels) data.levels = [];
     let userLevel = data.levels.find(l => l.userID === message.author.id);
     if (!userLevel) { data.levels.push({ userID: message.author.id, xp: 0, level: 0, lastMessageTimestamp: new Date(0) }); userLevel = data.levels.find(l => l.userID === message.author.id); }
     if (now - new Date(userLevel.lastMessageTimestamp).getTime() < 60000) return;
@@ -759,6 +760,7 @@ client.on('messageCreate', async (message) => {
         const targetChannel = message.guild.channels.cache.get(levelChannelID) || message.channel;
         if (targetChannel) { await targetChannel.send(`🎉 كفو ${message.author}! وصلت لـ ليفل **${userLevel.level}**!`); }
     }
+    data.markModified('levels');
     await data.save();
 });
 
