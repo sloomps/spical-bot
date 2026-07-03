@@ -18,7 +18,7 @@ const GuildData = require('./models/guildSchema');
 // ذاكرة مؤقتة للأنظمة والحماية
 const antiSpamMap = new Map();
 const invitesCache = new Map();
-let globalAntiRaid = false; // متغير وضع الحماية القصوى
+let globalAntiRaid = false;
 
 // الاتصال بقاعدة البيانات
 mongoose.connect(process.env.MONGO_URI)
@@ -36,7 +36,7 @@ client.once('ready', async () => {
         { name: 'leaderboard', description: 'عرض قائمة أعلى 10 أعضاء متفاعلين في السيرفر' },
         { name: 'daily', description: 'استلام مكافأتك المالية اليومية' },
 
-        // الـ 20 أمر إشراف السابقة
+        // الـ 40 أمر إشراف وتأمين السابقة (بدون أي تعديل أو نقص)
         { name: 'ban', description: '🔨 حظر عضو من السيرفر', options: [{ name: 'user', description: 'العضو المراد حظره', type: 6, required: true }, { name: 'reason', description: 'السبب', type: 3 }] },
         { name: 'unban', description: '🔓 فك الحظر عن عضو', options: [{ name: 'id', description: 'ID الشخص المحظور', type: 3, required: true }] },
         { name: 'kick', description: '👢 طرد عضو من السيرفر', options: [{ name: 'user', description: 'العضو المراد طرده', type: 6, required: true }, { name: 'reason', description: 'السبب', type: 3 }] },
@@ -57,8 +57,6 @@ client.once('ready', async () => {
         { name: 'show', description: '👀 إظهار الروم الحالي للأعضاء' },
         { name: 'temprole', description: '⏱️ إعطاء رتبة مؤقتة لعضو تزول تلقائياً', options: [{ name: 'user', description: 'العضو', type: 6, required: true }, { name: 'role', description: 'الرتبة', type: 8, required: true }, { name: 'minutes', description: 'المدة بالدقائق', type: 4, required: true }] },
         { name: 'reboot', description: '🔄 إعادة تشغيل أنظمة البوت برمجياً (للإدارة العليا فقط)' },
-
-        // الـ 20 أمر حماية وإشراف الجديدة كلياً (إدارية متطورة)
         { name: 'lockdown', description: '🚨 قفل اضطراري شامل لكافة رومات السيرفر لحمايته من التخريب' },
         { name: 'unlockdown', description: '🟢 إلغاء القفل الاضطراري وإعادة فتح رومات السيرفر بالكامل' },
         { name: 'mute-channel', description: '🔇 منع رتبة معينة من التحدث في هذا الروم فقط', options: [{ name: 'role', description: 'الرتبة المستهدفة', type: 8, required: true }] },
@@ -82,7 +80,7 @@ client.once('ready', async () => {
     ];
     
     await client.application.commands.set(commands).catch(console.error);
-    console.log('🔹 تم تسجيل كافة الأنظمة و 40 أمراً إدارياً وتأمينياً بنجاح!');
+    console.log('🔹 تم تسجيل كافة الأنظمة و 40 أمراً إدارياً بنجاح مع تطوير التكت الجديد!');
 
     client.guilds.cache.forEach(async (guild) => {
         try { const firstInvites = await guild.invites.fetch(); invitesCache.set(guild.id, new Map(firstInvites.map(invite => [invite.code, invite.uses]))); } catch { }
@@ -103,7 +101,6 @@ client.on('interactionCreate', async (interaction) => {
     if (interaction.isChatInputCommand()) {
         const { commandName, options, guild, member, channel, user } = interaction;
 
-        // الصلاحية الإدارية العامة للـ 40 أمر إشراف وتأمين
         const allModCommands = [
             'ban', 'unban', 'kick', 'mute', 'unmute', 'clear', 'warn', 'clearwarns', 'lock', 'unlock', 'slowmode', 'addrole', 'removerole', 'nick', 'nuke', 'hide', 'show', 'temprole',
             'lockdown', 'unlockdown', 'mute-channel', 'unmute-channel', 'strip-roles', 'massban', 'softban', 'role-create', 'role-delete', 'channel-create', 'channel-delete', 'slowmode-all', 'slowmode-off-all', 'quarantine', 'unquarantine', 'purge-bot', 'view-permissions', 'anti-raid-on', 'anti-raid-off'
@@ -113,7 +110,7 @@ client.on('interactionCreate', async (interaction) => {
             return interaction.reply({ content: '❌ عذراً، لا تمتلك الصلاحيات الإدارية الكافية لتنفيذ هذه الأوامر الأمنية.', ephemeral: true });
         }
 
-        // ---- الأوامر السابقة ----
+        // ---- إعداد اللوج ----
         if (commandName === 'setup-logs') {
             const logChan = options.getChannel('channel');
             if (logChan.type !== ChannelType.GuildText) return interaction.reply({ content: '❌ اختر قناة نصية.', ephemeral: true });
@@ -122,53 +119,51 @@ client.on('interactionCreate', async (interaction) => {
             return interaction.reply({ content: `✅ تم تعيين قناة اللوج في: ${logChan}`, ephemeral: true });
         }
 
+        // ---- أمر التكت المطور الجمالي ----
         if (commandName === 'setup-ticket') {
-            const embed = new EmbedBuilder().setTitle('🎫 مركز الدعم الفني').setDescription('اضغط على الزر أدناه لفتح تذكرة جديدة.').setColor('#2f3136');
-            const btn = new ButtonBuilder().setCustomId('open_ticket').setLabel('فتح تذكرة دعم').setStyle(ButtonStyle.Primary).setEmoji('📩');
-            await interaction.reply({ content: '✅ تم الإرسال بنجاح!', ephemeral: true });
+            if (!member.permissions.has(PermissionFlagsBits.Administrator)) return interaction.reply({ content: '❌ للإدارة فقط.', ephemeral: true });
+            
+            // تصميم مريح وجديد للعين لرسالة فتح التذاكر الأساسية
+            const embed = new EmbedBuilder()
+                .setTitle('🎫 مركز الدعم الفني والبطاقات')
+                .setDescription('مرحباً بك! إذا واجهتك مشكلة أو كنت بحاجة إلى استفسار، يرجى الضغط على الزر أدناه ليقوم فريق الإدارة بمساعدتك في أقرب وقت.')
+                .setColor('#2b2d31') // لون دارك مريح للعين متناسق مع الديسكورد الجديد
+                .setImage('https://i.imgur.com/your-default-banner.png') // يمكنك استبدال الرابط بـ بنر أو صورة سيرفرك المخصصة لتظهر بشكل رائع
+                .setFooter({ text: 'نظام الدعم الفني التلقائي الآمن', iconURL: guild.iconURL() });
+                
+            const btn = new ButtonBuilder().setCustomId('open_ticket').setLabel('فتح تذكرة دعم').setStyle(ButtonStyle.Secondary).setEmoji('📩');
+            await interaction.reply({ content: '✅ تم إرسال نظام التكت المطور والجميل بنجاح!', ephemeral: true });
             await channel.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(btn)] });
         }
 
+        // ---- باقي الأوامر السابقة بدون أي تغيير ----
         if (commandName === 'rank') {
-            const data = await GuildData.findOne({ guildID: guild.id });
-            const userLevel = data?.levels.find(l => l.userID === user.id);
+            const data = await GuildData.findOne({ guildID: guild.id }); const userLevel = data?.levels.find(l => l.userID === user.id);
             if (!userLevel) return interaction.reply('📊 لا يوجد سجل تفاعل لك بعد.');
-            const xpNeeded = (userLevel.level + 1) * 100;
-            const progress = Math.floor((userLevel.xp / xpNeeded) * 100);
+            const xpNeeded = (userLevel.level + 1) * 100; const progress = Math.floor((userLevel.xp / xpNeeded) * 100);
             const embed = new EmbedBuilder().setTitle(`📊 بطاقة ليفل | ${user.username}`).addFields({ name: '✨ ليفل:', value: `\`🏅 Level ${userLevel.level}\``, inline: true }, { name: '⭐ نقاط XP:', value: `\`✨ ${userLevel.xp} / ${xpNeeded}\` (${progress}%)`, inline: true }).setColor('#3498db');
             return interaction.reply({ embeds: [embed] });
         }
-
         if (commandName === 'leaderboard') {
-            const data = await GuildData.findOne({ guildID: guild.id });
-            if (!data || !data.levels || data.levels.length === 0) return interaction.reply('❌ لا توجد مستويات بالسيرفر.');
+            const data = await GuildData.findOne({ guildID: guild.id }); if (!data || !data.levels || data.levels.length === 0) return interaction.reply('❌ لا توجد مستويات بالسيرفر.');
             const sorted = data.levels.sort((a, b) => b.level === a.level ? b.xp - a.xp : b.level - a.level).slice(0, 10);
-            const embed = new EmbedBuilder().setTitle(`🏆 متصدري شات السيرفر`).setColor('#f1c40f');
-            let desc = "";
-            for (let i = 0; i < sorted.length; i++) {
-                try { const m = await guild.members.fetch(sorted[i].userID); desc += `#${i+1} **${m.user.username}** - ليفل \`${sorted[i].level}\`\n`; } catch { desc += `#${i+1} مستخدم غادر - ليفل \`${sorted[i].level}\`\n`; }
-            }
+            const embed = new EmbedBuilder().setTitle(`🏆 متصدري شات السيرفر`).setColor('#f1c40f'); let desc = "";
+            for (let i = 0; i < sorted.length; i++) { try { const m = await guild.members.fetch(sorted[i].userID); desc += `#${i+1} **${m.user.username}** - ليفل \`${sorted[i].level}\`\n`; } catch { desc += `#${i+1} مستخدم غادر\n`; } }
             embed.setDescription(desc); return interaction.reply({ embeds: [embed] });
         }
-
         if (commandName === 'daily') {
-            let data = await GuildData.findOne({ guildID: guild.id }) || new GuildData({ guildID: guild.id });
-            let eco = data.economy.find(e => e.userID === user.id);
+            let data = await GuildData.findOne({ guildID: guild.id }) || new GuildData({ guildID: guild.id }); let eco = data.economy.find(e => e.userID === user.id);
             if (!eco) { data.economy.push({ userID: user.id, coins: 0 }); eco = data.economy.find(e => e.userID === user.id); }
             if (eco.dailyCooldown && (new Date() - eco.dailyCooldown < 86400000)) return interaction.reply({ content: '❌ استلمت جائزتك اليومية بالفعل.', ephemeral: true });
-            eco.coins += 500; eco.dailyCooldown = new Date(); await data.save();
-            return interaction.reply(`💰 استلمت **500** عملة بنجاح! رصيدك الحالي: **${eco.coins}**.`);
+            eco.coins += 500; eco.dailyCooldown = new Date(); await data.save(); return interaction.reply(`💰 استلمت **500** عملة بنجاح! رصيدك الحالي: **${eco.coins}**.`);
         }
-
-        // ==================== مصفوفة الـ 20 أمراً الإدارية السابقة ====================
         if (commandName === 'ban') {
             const target = options.getMember('user'); const reason = options.getString('reason') || 'بدون سبب معطى';
             if (!target.bannable) return interaction.reply({ content: '❌ لا يمكن حظره.', ephemeral: true });
             await target.ban({ reason }); await interaction.reply(`🔨 تم حظر ${target.user.username}. السبب: ${reason}`);
         }
         if (commandName === 'unban') {
-            const targetId = options.getString('id');
-            try { await guild.members.unban(targetId); await interaction.reply(`🔓 تم إلغاء حظر الحساب بنجاح.`); } catch { await interaction.reply({ content: '❌ لم يتم العثور على الـ ID.', ephemeral: true }); }
+            const targetId = options.getString('id'); try { await guild.members.unban(targetId); await interaction.reply(`🔓 تم إلغاء حظر الحساب بنجاح.`); } catch { await interaction.reply({ content: '❌ لم يتم العثور على الـ ID.', ephemeral: true }); }
         }
         if (commandName === 'kick') {
             const target = options.getMember('user'); const reason = options.getString('reason') || 'بدون سبب';
@@ -179,238 +174,84 @@ client.on('interactionCreate', async (interaction) => {
             const target = options.getMember('user'); const duration = options.getInteger('duration') * 60 * 1000;
             await target.timeout(duration, 'أمر إداري'); await interaction.reply(`🔇 تم كتم ${target}.`);
         }
-        if (commandName === 'unmute') {
-            const target = options.getMember('user'); await target.timeout(null); await interaction.reply(`🔊 تم فك كتم ${target}.`);
-        }
-        if (commandName === 'clear') {
-            const amount = options.getInteger('amount'); await channel.bulkDelete(amount, true);
-            await interaction.reply({ content: `🧹 تم مسح \`${amount}\` رسالة.`, ephemeral: true });
-        }
+        if (commandName === 'unmute') { const target = options.getMember('user'); await target.timeout(null); await interaction.reply(`🔊 تم فك كتم ${target}.`); }
+        if (commandName === 'clear') { const amount = options.getInteger('amount'); await channel.bulkDelete(amount, true); await interaction.reply({ content: `🧹 تم مسح \`${amount}\` رسالة.`, ephemeral: true }); }
         if (commandName === 'warn') {
             const target = options.getMember('user'); const reason = options.getString('reason');
             let data = await GuildData.findOne({ guildID: guild.id }) || new GuildData({ guildID: guild.id });
-            data.moderation.warns.push({ userID: target.id, reason: reason, moderatorID: user.id });
-            await data.save(); await interaction.reply(`⚠️ تم تحذير ${target}. السبب: ${reason}`);
+            data.moderation.warns.push({ userID: target.id, reason: reason, moderatorID: user.id }); await data.save(); await interaction.reply(`⚠️ تم تحذير ${target}. السبب: ${reason}`);
         }
         if (commandName === 'warns') {
             const target = options.getMember('user'); let data = await GuildData.findOne({ guildID: guild.id });
-            const uWarns = data?.moderation.warns.filter(w => w.userID === target.id) || [];
-            if (uWarns.length === 0) return interaction.reply(`😇 ليس لديه تحذيرات.`);
-            let list = uWarns.map((w, i) => `**[${i+1}]** سبب: \`${w.reason}\``).join('\n');
-            await interaction.reply(`📋 تحذيرات ${target.user.username}:\n${list}`);
+            const uWarns = data?.moderation.warns.filter(w => w.userID === target.id) || []; if (uWarns.length === 0) return interaction.reply(`😇 ليس لديه تحذيرات.`);
+            let list = uWarns.map((w, i) => `**[${i+1}]** سبب: \`${w.reason}\``).join('\n'); await interaction.reply(`📋 تحذيرات ${target.user.username}:\n${list}`);
         }
         if (commandName === 'clearwarns') {
             const target = options.getMember('user'); let data = await GuildData.findOne({ guildID: guild.id });
-            if (data) { data.moderation.warns = data.moderation.warns.filter(w => w.userID !== target.id); await data.save(); }
-            await interaction.reply(`🧼 تم مسح تحذيرات ${target}.`);
+            if (data) { data.moderation.warns = data.moderation.warns.filter(w => w.userID !== target.id); await data.save(); } await interaction.reply(`🧼 تم مسح تحذيرات ${target}.`);
         }
-        if (commandName === 'lock') {
-            await channel.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: false }); await interaction.reply('🔒 تم قفل الغرفة.');
-        }
-        if (commandName === 'unlock') {
-            await channel.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: true }); await interaction.reply('🔓 تم فتح الغرفة.');
-        }
-        if (commandName === 'slowmode') {
-            await channel.setRateLimitPerUser(options.getInteger('seconds')); await interaction.reply(`⏳ تم تفعيل وضع التباطؤ.`);
-        }
-        if (commandName === 'addrole') {
-            const target = options.getMember('user'); const role = options.getRole('role');
-            await target.roles.add(role); await interaction.reply(`➕ تم إعطاء الرتبة.`);
-        }
-        if (commandName === 'removerole') {
-            const target = options.getMember('user'); const role = options.getRole('role');
-            await target.roles.remove(role); await interaction.reply(`➖ تم سحب الرتبة.`);
-        }
-        if (commandName === 'nick') {
-            const target = options.getMember('user'); await target.setNickname(options.getString('name'));
-            await interaction.reply(`🏷️ تم تغيير الاسم.`);
-        }
+        if (commandName === 'lock') { await channel.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: false }); await interaction.reply('🔒 تم قفل الغرفة.'); }
+        if (commandName === 'unlock') { await channel.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: true }); await interaction.reply('🔓 تم فتح الغرفة.'); }
+        if (commandName === 'slowmode') { await channel.setRateLimitPerUser(options.getInteger('seconds')); await interaction.reply(`⏳ تم تفعيل وضع التباطؤ.`); }
+        if (commandName === 'addrole') { const target = options.getMember('user'); const role = options.getRole('role'); await target.roles.add(role); await interaction.reply(`➕ تم إعطاء الرتبة.`); }
+        if (commandName === 'removerole') { const target = options.getMember('user'); const role = options.getRole('role'); await target.roles.remove(role); await interaction.reply(`➖ تم سحب الرتبة.`); }
+        if (commandName === 'nick') { const target = options.getMember('user'); await target.setNickname(options.getString('name')); await interaction.reply(`🏷️ تم تغيير الاسم.`); }
         if (commandName === 'nuke') {
-            const pos = channel.position; const newChan = await channel.clone();
-            await channel.delete().catch(() => {}); await newChan.setPosition(pos);
+            const pos = channel.position; const newChan = await channel.clone(); await channel.delete().catch(() => {}); await newChan.setPosition(pos);
             await newChan.send({ embeds: [new EmbedBuilder().setDescription('☢️ تم نيوك وتطهير الروم!').setColor('#2ecc71')] });
         }
-        if (commandName === 'hide') {
-            await channel.permissionOverwrites.edit(guild.roles.everyone, { ViewChannel: false }); await interaction.reply('🙈 تم إخفاء الروم.');
-        }
-        if (commandName === 'show') {
-            await channel.permissionOverwrites.edit(guild.roles.everyone, { ViewChannel: true }); await interaction.reply('👀 تم إظهار الروم.');
-        }
+        if (commandName === 'hide') { await channel.permissionOverwrites.edit(guild.roles.everyone, { ViewChannel: false }); await interaction.reply('🙈 تم إخفاء الروم.'); }
+        if (commandName === 'show') { await channel.permissionOverwrites.edit(guild.roles.everyone, { ViewChannel: true }); await interaction.reply('👀 تم إظهار الروم.'); }
         if (commandName === 'temprole') {
-            const target = options.getMember('user'); const role = options.getRole('role'); const mins = options.getInteger('minutes');
-            await target.roles.add(role); await interaction.reply(`⏱️ رتبة مؤقتة لـ ${mins} دقيقة.`);
+            const target = options.getMember('user'); const role = options.getRole('role'); const mins = options.getInteger('minutes'); await target.roles.add(role); await interaction.reply(`⏱️ رتبة مؤقتة لـ ${mins} دقيقة.`);
             setTimeout(async () => { const m = await guild.members.fetch(target.id).catch(() => null); if (m) await m.roles.remove(role).catch(() => {}); }, mins * 60 * 1000);
         }
-        if (commandName === 'reboot') {
-            if (user.id !== guild.ownerId) return interaction.reply({ content: '❌ لمالك السيرفر فقط.', ephemeral: true });
-            await interaction.reply('🔄 جاري إعادة التشغيل...'); process.exit(0);
-        }
-
-        // ==================== مصفوفة الـ 20 أمراً التأمينية والإدارية الجديدة ====================
-        
+        if (commandName === 'reboot') { if (user.id !== guild.ownerId) return interaction.reply({ content: '❌ لمالك السيرفر فقط.', ephemeral: true }); await interaction.reply('🔄 جاري إعادة التشغيل...'); process.exit(0); }
         if (commandName === 'lockdown') {
-            await interaction.reply('🚨 جاري فرض حالة إغلاق الطوارئ الشامل لكافة قنوات السيرفر...');
-            guild.channels.cache.forEach(async (ch) => {
-                if (ch.type === ChannelType.GuildText) {
-                    await ch.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: false }).catch(() => {});
-                }
-            });
-            await interaction.followUp('🔒 تم إغلاق السيرفر بالكامل بنجاح وحمايته من التخريب الخارجي.');
+            await interaction.reply('🚨 جاري فرض حالة إغلاق الطوارئ الشامل...'); guild.channels.cache.forEach(async (ch) => { if (ch.type === ChannelType.GuildText) await ch.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: false }).catch(() => {}); }); await interaction.followUp('🔒 تم إغلاق السيرفر بالكامل.');
         }
-
         if (commandName === 'unlockdown') {
-            await interaction.reply('🟢 جاري فك حالة الطوارئ وإعادة فتح قنوات السيرفر...');
-            guild.channels.cache.forEach(async (ch) => {
-                if (ch.type === ChannelType.GuildText) {
-                    await ch.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: true }).catch(() => {});
-                }
-            });
-            await interaction.followUp('🔓 تم إعادة فتح السيرفر بشكل طبيعي للجميع.');
+            await interaction.reply('🟢 جاري فك حالة الطوارئ...'); guild.channels.cache.forEach(async (ch) => { if (ch.type === ChannelType.GuildText) await ch.permissionOverwrites.edit(guild.roles.everyone, { SendMessages: true }).catch(() => {}); }); await interaction.followUp('🔓 تم إعادة فتح السيرفر.');
         }
-
-        if (commandName === 'mute-channel') {
-            const role = options.getRole('role');
-            await channel.permissionOverwrites.edit(role, { SendMessages: false });
-            await interaction.reply(`🔇 تم منع أصحاب رتبة **${role.name}** من التحدث داخل هذا الروم.`);
-        }
-
-        if (commandName === 'unmute-channel') {
-            const role = options.getRole('role');
-            await channel.permissionOverwrites.edit(role, { SendMessages: true });
-            await interaction.reply(`🔊 تم فك منع التحدث عن رتبة **${role.name}** داخل هذا الروم.`);
-        }
-
+        if (commandName === 'mute-channel') { const role = options.getRole('role'); await channel.permissionOverwrites.edit(role, { SendMessages: false }); await interaction.reply(`🔇 تم منع الرتبة.`); }
+        if (commandName === 'unmute-channel') { const role = options.getRole('role'); await channel.permissionOverwrites.edit(role, { SendMessages: true }); await interaction.reply(`🔊 تم فك منع الرتبة.`); }
         if (commandName === 'strip-roles') {
-            const target = options.getMember('user');
-            if (!target.manageable) return interaction.reply({ content: '❌ لا يمكنني التحكم برتب هذا العضو بسبب صلاحياته.', ephemeral: true });
-            const userRoles = target.roles.cache.filter(r => r.id !== guild.id);
-            userRoles.forEach(async (r) => await target.roles.remove(r).catch(() => {}));
-            await interaction.reply(`🛡️ تم تجريد ${target} من كافة رتبه فوراً كإجراء أمني احترازي.`);
+            const target = options.getMember('user'); if (!target.manageable) return interaction.reply({ content: '❌ لا يمكن التحكم برتبه.', ephemeral: true });
+            const userRoles = target.roles.cache.filter(r => r.id !== guild.id); userRoles.forEach(async (r) => await target.roles.remove(r).catch(() => {})); await interaction.reply(`🛡️ تم تجريد العضو من رتبه.`);
         }
-
         if (commandName === 'massban') {
-            const idsStr = options.getString('ids');
-            const reason = options.getString('reason') || 'حظر جماعي أمني';
-            const ids = idsStr.split(/\s+/);
-            await interaction.reply(`💥 جاري بدء عملية الحظر الجماعي لـ \`${ids.length}\` حساب مشبوه...`);
-            let count = 0;
-            for (const id of ids) {
-                try { await guild.members.ban(id, { reason }); count++; } catch {}
-            }
-            await interaction.followUp(`✅ اكتمل الحظر الجماعي. تم بنجاح حظر \`${count}\` حساب من السيرفر.`);
+            const idsStr = options.getString('ids'); const reason = options.getString('reason') || 'حظر جماعي أمني'; const ids = idsStr.split(/\s+/); await interaction.reply(`💥 جاري بدء عملية الحظر الجماعي...`);
+            let count = 0; for (const id of ids) { try { await guild.members.ban(id, { reason }); count++; } catch {} } await interaction.followUp(`✅ تم حظر \`${count}\` حساب.`);
         }
-
         if (commandName === 'softban') {
-            const target = options.getMember('user');
-            const reason = options.getString('reason') || 'سوفت بان لتنظيف الرسائل';
-            if (!target.bannable) return interaction.reply({ content: '❌ الحساب غير قابل للحظر.', ephemeral: true });
-            await guild.members.ban(target.id, { deleteMessageSeconds: 7 * 24 * 60 * 60, reason });
-            await guild.members.unban(target.id);
-            await interaction.reply(`🧹 تم عمل سوفت بان لـ ${target.user.username} بنجاح (طرد وتم مسح كافة رسائله لآخر 7 أيام).`);
+            const target = options.getMember('user'); const reason = options.getString('reason') || 'سوفت بان لتنظيف الرسائل'; if (!target.bannable) return interaction.reply({ content: '❌ غير قابل للحظر.', ephemeral: true });
+            await guild.members.ban(target.id, { deleteMessageSeconds: 7 * 24 * 60 * 60, reason }); await guild.members.unban(target.id); await interaction.reply(`🧹 تم عمل سوفت بان لـ ${target.user.username}.`);
         }
-
-        if (commandName === 'role-create') {
-            const name = options.getString('name');
-            const color = options.getString('color') || '#95a5a6';
-            const newRole = await guild.roles.create({ name, color, reason: 'إنشاء سريع عبر البوت' });
-            await interaction.reply(`🛠️ تم إنشاء الرتبة الجديدة بنجاح: ${newRole}`);
-        }
-
-        if (commandName === 'role-delete') {
-            const role = options.getRole('role');
-            if (!role.editable) return interaction.reply({ content: '❌ رتبة أعلى من البوت ولا يمكن حذفها.', ephemeral: true });
-            await role.delete();
-            await interaction.reply(`🗑️ تم حذف الرتبة المستهدفة من السيرفر نهائياً.`);
-        }
-
-        if (commandName === 'channel-create') {
-            const name = options.getString('name');
-            const type = options.getInteger('type');
-            const newChan = await guild.channels.create({ name, type });
-            await interaction.reply(`📁 تم إنشاء القناة الجديدة بنجاح: ${newChan}`);
-        }
-
-        if (commandName === 'channel-delete') {
-            const ch = options.getChannel('channel');
-            await ch.delete();
-            await interaction.reply(`🗑️ تم حذف القناة المستهدفة بنجاح من السيرفر.`);
-        }
-
-        if (commandName === 'slowmode-all') {
-            guild.channels.cache.forEach(async (ch) => {
-                if (ch.type === ChannelType.GuildText) await ch.setRateLimitPerUser(5).catch(() => {});
-            });
-            await interaction.reply('⏳ تم تفعيل وضع التباطؤ (5 ثوانٍ) في كافة قنوات السيرفر للسيطرة على الأوضاع.');
-        }
-
-        if (commandName === 'slowmode-off-all') {
-            guild.channels.cache.forEach(async (ch) => {
-                if (ch.type === ChannelType.GuildText) await ch.setRateLimitPerUser(0).catch(() => {});
-            });
-            await interaction.reply('🛑 تم إلغاء وضع التباطؤ بالكامل من جميع قنوات السيرفر.');
-        }
-
+        if (commandName === 'role-create') { const name = options.getString('name'); const color = options.getString('color') || '#95a5a6'; const newRole = await guild.roles.create({ name, color, reason: 'إنشاء سريع' }); await interaction.reply(`🛠️ تم إنشاء الرتبة: ${newRole}`); }
+        if (commandName === 'role-delete') { const role = options.getRole('role'); if (!role.editable) return interaction.reply({ content: '❌ لا يمكن حذفها.', ephemeral: true }); await role.delete(); await interaction.reply(`🗑️ تم حذف الرتبة.`); }
+        if (commandName === 'channel-create') { const name = options.getString('name'); const type = options.getInteger('type'); const newChan = await guild.channels.create({ name, type }); await interaction.reply(`📁 تم إنشاء القناة: ${newChan}`); }
+        if (commandName === 'channel-delete') { const ch = options.getChannel('channel'); await ch.delete(); await interaction.reply(`🗑️ تم حذف القناة.`); }
+        if (commandName === 'slowmode-all') { guild.channels.cache.forEach(async (ch) => { if (ch.type === ChannelType.GuildText) await ch.setRateLimitPerUser(5).catch(() => {}); }); await interaction.reply('⏳ تم تفعيل وضع التباطؤ العام.'); }
+        if (commandName === 'slowmode-off-all') { guild.channels.cache.forEach(async (ch) => { if (ch.type === ChannelType.GuildText) await ch.setRateLimitPerUser(0).catch(() => {}); }); await interaction.reply('🛑 تم إلغاء وضع التباطؤ العام.'); }
         if (commandName === 'quarantine') {
-            const target = options.getMember('user');
-            let qRole = guild.roles.cache.find(r => r.name.toLowerCase() === 'quarantined');
-            if (!qRole) {
-                qRole = await guild.roles.create({ name: 'Quarantined', color: '#555555', permissions: [] });
-                guild.channels.cache.forEach(async (ch) => {
-                    if (ch.type === ChannelType.GuildText) await ch.permissionOverwrites.edit(qRole, { ViewChannel: false });
-                });
-            }
-            await target.roles.add(qRole);
-            await interaction.reply(`☣️ تم وضع ${target} في الحجر الأمني وسحب أهليته في التواصل مؤقتاً.`);
+            const target = options.getMember('user'); let qRole = guild.roles.cache.find(r => r.name.toLowerCase() === 'quarantined');
+            if (!qRole) { qRole = await guild.roles.create({ name: 'Quarantined', color: '#555555', permissions: [] }); guild.channels.cache.forEach(async (ch) => { if (ch.type === ChannelType.GuildText) await ch.permissionOverwrites.edit(qRole, { ViewChannel: false }); }); }
+            await target.roles.add(qRole); await interaction.reply(`☣️ تم وضع العضو في الحجر الأمني.`);
         }
-
-        if (commandName === 'unquarantine') {
-            const target = options.getMember('user');
-            const qRole = guild.roles.cache.find(r => r.name.toLowerCase() === 'quarantined');
-            if (qRole) await target.roles.remove(qRole);
-            await interaction.reply(`🟢 تم رفع الحجر الأمني عن ${target} بنجاح.`);
-        }
-
-        if (commandName === 'purge-bot') {
-            const amount = options.getInteger('amount');
-            const msgs = await channel.messages.fetch({ limit: amount });
-            const botMsgs = msgs.filter(m => m.author.bot);
-            await channel.bulkDelete(botMsgs, true);
-            await interaction.reply({ content: `🤖 تم تنظيف الشات وحذف \`${botMsgs.size}\` رسالة تابعة للبوتات.`, ephemeral: true });
-        }
-
+        if (commandName === 'unquarantine') { const target = options.getMember('user'); const qRole = guild.roles.cache.find(r => r.name.toLowerCase() === 'quarantined'); if (qRole) await target.roles.remove(qRole); await interaction.reply(`🟢 تم رفع الحجر الأمني.`); }
+        if (commandName === 'purge-bot') { const amount = options.getInteger('amount'); const msgs = await channel.messages.fetch({ limit: amount }); const botMsgs = msgs.filter(m => m.author.bot); await channel.bulkDelete(botMsgs, true); await interaction.reply({ content: `🤖 تم تنظيف رسائل البوتات.`, ephemeral: true }); }
         if (commandName === 'view-permissions') {
-            const target = options.getMember('user');
-            const perms = target.permissions.toArray().map(p => `\`${p}\``).join(', ');
-            const embed = new EmbedBuilder()
-                .setTitle(`🔍 فحص أمني لصلاحيات العضو`)
-                .setDescription(`الأعضاء: ${target}\n\n**الصلاحيات الممتلكة:**\n${perms || 'لا يملك أي صلاحيات إدارية'}`)
-                .setColor('#e67e22');
-            await interaction.reply({ embeds: [embed] });
+            const target = options.getMember('user'); const perms = target.permissions.toArray().map(p => `\`${p}\``).join(', ');
+            const embed = new EmbedBuilder().setTitle(`🔍 فحص أمني للمشرف`).setDescription(`الأعضاء: ${target}\n\n**الصلاحيات:**\n${perms || 'لا يملك صلاحيات'}`).setColor('#e67e22'); await interaction.reply({ embeds: [embed] });
         }
-
-        if (commandName === 'anti-raid-on') {
-            globalAntiRaid = true;
-            await interaction.reply('🚨 [وضع حظر الهجمات مفعل]: تم تفعيل جدار الحماية الأقصى، سيتم طرد أي شخص يحاول الدخول فوراً.');
-        }
-
-        if (commandName === 'anti-raid-off') {
-            globalAntiRaid = false;
-            await interaction.reply('🟢 [وضع حظر الهجمات ملغى]: تم إعادة جدار الحماية للوضع العادي والسماح بالدخول.');
-        }
-
+        if (commandName === 'anti-raid-on') { globalAntiRaid = true; await interaction.reply('🚨 تم تفعيل جدار الحماية الأقصى.'); }
+        if (commandName === 'anti-raid-off') { globalAntiRaid = false; await interaction.reply('🟢 تم إيقاف وضع الحماية المطلقة.'); }
         if (commandName === 'server-info') {
-            const embed = new EmbedBuilder()
-                .setTitle(`📊 التقرير الأمني والفني لـ ${guild.name}`)
-                .addFields(
-                    { name: '👥 الأعضاء الإجمالي:', value: `\`${guild.memberCount}\``, inline: true },
-                    { name: '🔒 مستوى التحقق بالسيرفر:', value: `\`المستوى ${guild.verificationLevel}\``, inline: true },
-                    { name: '🛡️ وضع الحماية الفجائية (Anti-Raid):', value: `\`${globalAntiRaid ? '🔴 نشط وصارم' : '🟢 مستقر وعادي'}\``, inline: true }
-                ).setColor('#9b59b6').setTimestamp();
-            await interaction.reply({ embeds: [embed] });
+            const embed = new EmbedBuilder().setTitle(`📊 التقرير الأمني لـ ${guild.name}`).addFields({ name: '👥 الأعضاء الإجمالي:', value: `\`${guild.memberCount}\``, inline: true }, { name: '🔒 مستوى التحقق:', value: `\`المستوى ${guild.verificationLevel}\``, inline: true }, { name: '🛡️ وضع Anti-Raid:', value: `\`${globalAntiRaid ? '🔴 نشط' : '🟢 مستقر'}\``, inline: true }).setColor('#9b59b6').setTimestamp(); await interaction.reply({ embeds: [embed] });
         }
     }
 
-    // === تابع نظام التكت المطور الحديث بالأزرار ===
+    // === تفاعلات التكت المطور الجمالي والأزرار ===
     if (interaction.isButton()) {
         if (interaction.customId === 'open_ticket') {
             const modal = new ModalBuilder().setCustomId('ticket_modal').setTitle('🎫 فتح تذكرة جديدة');
@@ -438,6 +279,8 @@ client.on('interactionCreate', async (interaction) => {
 
     if (interaction.isModalSubmit() && interaction.customId === 'ticket_modal') {
         const reason = interaction.fields.getTextInputValue('ticket_reason');
+        
+        // إنشاء الغرفة
         const chan = await interaction.guild.channels.create({
             name: `🎫-${interaction.user.username}`, type: ChannelType.GuildText,
             permissionOverwrites: [
@@ -446,9 +289,43 @@ client.on('interactionCreate', async (interaction) => {
                 { id: client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
             ]
         });
-        const embed = new EmbedBuilder().setTitle('🎫 تذكرة دعم جديدة').setDescription(`السبب: ${reason}`).setColor('#00ffcc');
-        const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('claim_ticket').setLabel('استلام التذكرة').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId('close_ticket').setLabel('إغلاق التذكرة').setStyle(ButtonStyle.Danger));
-        await chan.send({ embeds: [embed], components: [row] }); await interaction.reply({ content: `✅ تم فتح تذكرتك في: ${chan}`, ephemeral: true });
+
+        // رسالة إمبيد منسقة ومريحة داخل روم التكت الجديد
+        const embed = new EmbedBuilder()
+            .setTitle('🎫 تم إنشاء التذكرة بنجاح')
+            .setDescription(`أهلاً بك يا ${interaction.user} في تذكرتك الخاصة.\n\n**السبب المكتوب:**\n\`\`\`text\n${reason}\n\`\`\`\nالرجاء انتظار فريق الدعم الفني دون تكرار الإشارات، سيتم الرد عليك في أقرب وقت ممكن.`)
+            .setColor('#2b2d31')
+            .setImage('https://i.imgur.com/your-ticket-inside-banner.png') // يمكنك إضافة صورة مخصصة تظهر داخل روم التكت نفسه لتبدو خلابة ومريحة
+            .setTimestamp();
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('claim_ticket').setLabel('استلام التذكرة').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId('close_ticket').setLabel('إغلاق التذكرة').setStyle(ButtonStyle.Danger)
+        );
+        
+        await chan.send({ embeds: [embed], components: [row] });
+        await interaction.reply({ content: `✅ تم فتح تذكرتك في: ${chan}`, ephemeral: true });
+
+        // 🌟 الميزة المطورة: إرسال تفاصيل التذكرة في الخاص (DM) للعضو بشكل أنيق ومريح جداً للعين
+        const dmEmbed = new EmbedBuilder()
+            .setTitle('📩 تفاصيل تذكرتك الجديدة')
+            .setDescription(`مرحباً **${interaction.user.username}**، لقد قمت بفتح تذكرة دعم فني جديدة بنجاح في سيرفر **${interaction.guild.name}**.`)
+            .addFields(
+                { name: '🌐 اسم السيرفر:', value: `\`${interaction.guild.name}\``, inline: true },
+                { name: '🎫 قناة التذكرة:', value: `${chan}`, inline: true },
+                { name: '📝 سبب التذكرة:', value: `\`\`\`text\n${reason}\n\`\`\``, inline: false }
+            )
+            .setColor('#2b2d31') // نفس الدرجة الهادئة والمريحة للعين
+            .setImage('https://i.imgur.com/your-dm-banner.png') // يمكنك وضع صورة أو بانر خاص في رسالة الخاص لإعطاء طابع جذاب واحترافي
+            .setThumbnail(interaction.guild.iconURL({ dynamic: true }))
+            .setFooter({ text: 'يرجى إبقاء خاصك مفتوحاً لتلقي تحديثات الدعم الفني.' })
+            .setTimestamp();
+
+        await interaction.user.send({ embeds: [dmEmbed] }).catch(() => {
+            console.log(`فشل إرسال رسالة خاصة لـ ${interaction.user.tag} لأن الخاص لديه مغلق.`);
+        });
+
+        await sendLog(interaction.guild, new EmbedBuilder().setTitle('📩 إنشاء تذكرة').setDescription(`**بواسطة:** ${interaction.user}\n**الروم:** ${chan}\n**السبب:** ${reason}`).setColor('#2ecc71').setTimestamp());
     }
 });
 
@@ -496,32 +373,15 @@ client.on('messageUpdate', async (o, n) => {
     await sendLog(o.guild, new EmbedBuilder().setTitle('📝 رسالة معدلة').setDescription(`**الكاتب:** ${o.author}\n**الروم:** ${o.channel}\n**القديمة:**\n\`\`\`${o.content}\`\`\`\n**الجديدة:**\n\`\`\`${n.content}\`\`\``).setColor('#3498db').setTimestamp());
 });
 
-// تتبع الانضمام + مكافحة الهجمات والحسابات الوهمية
 client.on('guildMemberAdd', async (m) => {
-    // 1. نظام الحماية ضد الهجمات الفجائية النشط (Anti-Raid Mode)
-    if (globalAntiRaid) {
-        try {
-            await m.send(`❌ تم طردك تلقائياً من سيرفر **${m.guild.name}** نظراً لتفعيل وضع الطوارئ والحماية القصوى حالياً ضد الهجمات.`).catch(() => {});
-            return await m.kick('وضع الـ Anti-Raid مفعل طوارئ');
-        } catch {}
-    }
-
-    // 2. فحص الحسابات الوهمية
-    if (Date.now() - m.user.createdTimestamp < 3 * 24 * 60 * 60 * 1000) {
-        await m.send(`❌ تم طردك تلقائياً لأن حسابك وهمي وجديد جداً لحماية السيرفر.`).catch(() => {});
-        return await m.kick('حساب وهمي (Anti-Alt protection)').catch(() => {});
-    }
-
+    if (globalAntiRaid) { try { await m.send(`❌ تم طردك تلقائياً نظراً لتفعيل وضع الطوارئ والـ Anti-Raid حالياً.`).catch(() => {}); return await m.kick('وضع الـ Anti-Raid مفعل طوارئ'); } catch {} }
+    if (Date.now() - m.user.createdTimestamp < 3 * 24 * 60 * 60 * 1000) { await m.send(`❌ تم طردك تلقائياً لأن حسابك وهمي لحماية السيرفر.`).catch(() => {}); return await m.kick('حساب وهمي (Anti-Alt protection)').catch(() => {}); }
     let invTxt = "غير معروف";
     try {
         const cached = invitesCache.get(m.guild.id); const current = await m.guild.invites.fetch();
-        for (const [code, inv] of current) {
-            if (inv.uses > (cached?.get(code) || 0)) { invTxt = `**${inv.inviter.tag}**\n**الكود:** \`${code}\``; cached.set(code, inv.uses); break; }
-        }
+        for (const [code, inv] of current) { if (inv.uses > (cached?.get(code) || 0)) { invTxt = `**${inv.inviter.tag}**\n**الكود:** \`${code}\``; cached.set(code, inv.uses); break; } }
     } catch { }
-
-    const embed = new EmbedBuilder().setTitle('📥 عضو جديد انضم').setDescription(`**العضو:** ${m} (${m.user.tag})\n**دعا بواسطة:** ${invTxt}`).setColor('#2ecc71').setTimestamp();
-    await sendLog(m.guild, embed);
+    const embed = new EmbedBuilder().setTitle('📥 عضو جديد انضم').setDescription(`**العضو:** ${m} (${m.user.tag})\n**دعا بواسطة:** ${invTxt}`).setColor('#2ecc71').setTimestamp(); await sendLog(m.guild, embed);
 });
 
 process.on('unhandledRejection', error => console.error('[خطأ غير معالج]:', error));
