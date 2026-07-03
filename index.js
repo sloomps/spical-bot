@@ -32,8 +32,7 @@ client.once('ready', async () => {
     console.log(`🚀 تم تشغيل البوت بنجاح باسم: ${client.user.tag}`);
     
     const commands = [
-        // أنظمة التذاكر والترحيب والإعدادات السابقة
-        { name: 'setup-ticket', description: 'إعداد نظام تذاكر الدعم الفني الحديث بالسيرفر' },
+        // أنظمة التذاكر والترحيب والإعدادات السابقة (تم حذف setup-ticket العادي)
         { 
             name: 'setup-advanced-ticket', 
             description: '⚙️ إعداد نظام تذاكر متطور بأقسام وصور مخصصة من اختيارك',
@@ -50,7 +49,7 @@ client.once('ready', async () => {
         { name: 'leaderboard', description: 'عرض قائمة أعلى 10 أعضاء متفاعلين في السيرفر' },
         { name: 'daily', description: 'استلام مكافأتك المالية اليومية' },
 
-        // الـ 40 أمر إشراف وتأمين السابقة كاملة بدون أي تعديل
+        // الـ 40 أمر إشراف وتأمين السابقة كاملة
         { name: 'ban', description: '🔨 حظر عضو من السيرفر', options: [{ name: 'user', description: 'العضو المراد حظره', type: 6, required: true }, { name: 'reason', description: 'السبب', type: 3 }] },
         { name: 'unban', description: '🔓 فك الحظر عن عضو', options: [{ name: 'id', description: 'ID الشخص المحظور', type: 3, required: true }] },
         { name: 'kick', description: '👢 طرد عضو من السيرفر', options: [{ name: 'user', description: 'العضو المراد طرده', type: 6, required: true }, { name: 'reason', description: 'السبب', type: 3 }] },
@@ -92,7 +91,7 @@ client.once('ready', async () => {
         { name: 'anti-raid-off', description: '🟢 إيقاف وضع الحماية المطلقة والسماح بدخول الأعضاء بشكل طبيعي' },
         { name: 'server-info', description: '📊 عرض تقرير أمني وتقني كامل وشامل عن إحصائيات وحماية السيرفر' },
 
-        // الـ 20 أمراً الإدارية والصوتية السابقة كاملة بدون أي تعديل
+        // الـ 20 أمراً الإدارية والصوتية السابقة
         { name: 'lock-voice', description: '🔒 قفل الروم الصوتي الحالي ومنع الدخول إليه', options: [{ name: 'channel', description: 'اختر الروم الصوتي', type: 7, required: true }] },
         { name: 'unlock-voice', description: '🔓 فتح الروم الصوتي الحالي للسماح بالدخول', options: [{ name: 'channel', description: 'اختر الروم الصوتي', type: 7, required: true }] },
         { name: 'mute-voice', description: '🔇 كتم صوت العضو داخل الروم الصوتي بالكامل', options: [{ name: 'user', description: 'العضو المستهدف', type: 6, required: true }] },
@@ -115,7 +114,7 @@ client.once('ready', async () => {
         { name: 'anti-bot-off', description: '🟢 إيقاف نظام حظر دخول البوتات الخارجية والسماح بدخولها بشكل عادي' },
         { name: 'help', description: '💡 عرض قائمة جميع أوامر البوت المتاحة وشرح كامل لوظائفها المتقدمة' },
 
-        // 🌟 أوامر نظام الرتب والصلاحيات وحماية المالك الجديدة بالكامل 🌟
+        // أوامر نظام الرتب والصلاحيات وحماية المالك
         { name: 'set-admin-role', description: '⚙️ تعيين رتبة الإدارة العليا المسموح لها بإدارة البوت وسير العمل', options: [{ name: 'role', description: 'اختر الرتبة', type: 8, required: true }] },
         { name: 'set-mod-role', description: '🛡️ تعيين رتبة المشرفين المسموح لهم بإصدار العقوبات والميوت', options: [{ name: 'role', description: 'اختر الرتبة', type: 8, required: true }] },
         { name: 'set-support-role', description: '🎫 تعيين رتبة الدعم الفني الخاصة بإدارة واستلام التذاكر', options: [{ name: 'role', description: 'اختر الرتبة', type: 8, required: true }] },
@@ -124,7 +123,7 @@ client.once('ready', async () => {
     ];
     
     await client.application.commands.set(commands).catch(console.error);
-    console.log('🔹 تم تشغيل نظام الرتب والصلاحيات المتقدم وتأمين المالك بنجاح!');
+    console.log('🔹 تم تحديث قائمة الأوامر وإزالة نظام التذاكر العادي!');
 
     client.guilds.cache.forEach(async (guild) => {
         try { const firstInvites = await guild.invites.fetch(); invitesCache.set(guild.id, new Map(firstInvites.map(invite => [invite.code, invite.uses]))); } catch { }
@@ -144,7 +143,6 @@ client.on('interactionCreate', async (interaction) => {
     if (interaction.isChatInputCommand()) {
         const { commandName, options, guild, member, channel, user } = interaction;
 
-        // جلب إعدادات الرتب من قاعدة البيانات
         let dbData = await GuildData.findOne({ guildID: guild.id }) || new GuildData({ guildID: guild.id });
         if (!dbData.settings) dbData.settings = {};
 
@@ -152,19 +150,16 @@ client.on('interactionCreate', async (interaction) => {
         const botModRoleID = dbData.settings.botModRoleID;
         const botSupportRoleID = dbData.settings.botSupportRoleID;
 
-        // التحقق من الصلاحيات حسب رتب البوت الجديدة أو الصلاحيات الأصلية (مع استثناء المالك دائماً)
         const isOwner = (user.id === BOT_OWNER_ID);
         const isAdmin = isOwner || member.roles.cache.has(botAdminRoleID) || member.permissions.has(PermissionFlagsBits.Administrator);
         const isMod = isAdmin || member.roles.cache.has(botModRoleID) || member.permissions.has(PermissionFlagsBits.ManageMessages);
         const isSupport = isMod || member.roles.cache.has(botSupportRoleID);
 
-        // 🛡️ حماية المالك المطلق: منع استخدام أي أمر عقابي ضد مالك البوت نهائياً
         const targetUser = options.getMember('user');
         if (targetUser && targetUser.id === BOT_OWNER_ID && !isOwner) {
             return interaction.reply({ content: '❌ خطأ أمني: هذا الحساب يمتلك حصانة المالك المطلق، لا يمكنك استخدام أوامر البوت عليه!', ephemeral: true });
         }
 
-        // تقسيم حماية الأوامر بناءً على الرتب الجديدة المخصصة
         const adminCommands = ['lockdown', 'unlockdown', 'role-all', 'role-remove-all', 'anti-raid-on', 'anti-raid-off', 'anti-bot-on', 'anti-bot-off', 'reboot', 'set-admin-role', 'set-mod-role', 'set-support-role', 'clear-warns-all'];
         const modCommands = ['ban', 'unban', 'kick', 'mute', 'unmute', 'clear', 'warn', 'clearwarns', 'lock', 'unlock', 'slowmode', 'addrole', 'removerole', 'nick', 'nuke', 'hide', 'show', 'temprole', 'mute-channel', 'unmute-channel', 'strip-roles', 'massban', 'softban', 'role-create', 'role-delete', 'channel-create', 'channel-delete', 'slowmode-all', 'slowmode-off-all', 'quarantine', 'unquarantine', 'purge-bot', 'view-permissions', 'lock-voice', 'unlock-voice', 'mute-voice', 'unmute-voice', 'deafen-voice', 'undeafen-voice', 'disconnect-voice', 'slowmode-voice', 'limit-voice', 'hide-voice', 'show-voice', 'slowmode-off', 'clear-bot-messages', 'clone-channel'];
 
@@ -175,7 +170,6 @@ client.on('interactionCreate', async (interaction) => {
             return interaction.reply({ content: '❌ هذا الأمر مخصص للمشرفين (Mod Role) فما فوق.', ephemeral: true });
         }
 
-        // 🌟 تنفيذ أوامر إدارة الرتب الجديدة 🌟
         if (commandName === 'set-admin-role') {
             const role = options.getRole('role');
             dbData.settings.botAdminRoleID = role.id; await dbData.save();
@@ -211,7 +205,7 @@ client.on('interactionCreate', async (interaction) => {
             }
         }
 
-        // ---- أمر المساعدة الشامل الاحترافي المتناسق مع الرتب والـ 68 أمراً المتاحة ----
+        // ---- أمر المساعدة الشامل الاحترافي ----
         if (commandName === 'help') {
             const embed = new EmbedBuilder()
                 .setTitle('💡 دليل أوامر النظام الإداري والأمني الشامل')
@@ -219,18 +213,18 @@ client.on('interactionCreate', async (interaction) => {
                 .setColor('#2b2d31')
                 .addFields(
                     { name: '👑 نظام الرتب والصلاحيات الجديد للمالك', value: '`/set-admin-role` - تعيين رتبة الإدارة العليا\n`/set-mod-role` - تعيين رتبة المشرفين\n`/set-support-role` - تعيين رتبة الدعم الفني\n`/view-bot-roles` - عرض رتب البوت | `/check-immunity` - فحص حصانة المالك' },
-                    { name: '🎫 أنظمة البطاقات والتذاكر المتقدمة', value: '`/setup-ticket` - إعداد التكت العادي\n`/setup-advanced-ticket` - إعداد تكت متطور بالأقسام والصور' },
+                    { name: '🎫 أنظمة التذاكر المتقدمة والأقسام', value: '`/setup-advanced-ticket` - إعداد تكت متطور بالأقسام والصور والخيارات التفاعلية' },
                     { name: '👋 أنظمة الإعدادات والترحيب والتفاعل', value: '`/setup-welcome` - تعيين روم الترحيب المطور\n`/setup-logs` - تعيين روم السجلات واللوق\n`/rank` - عرض مستواك وتفاعلك الحالي\n`/leaderboard` - قائمة أعلى المتفاعلين\n`/daily` - استلام المكافأة اليومية' },
-                    { name: '🔨 أوامر الإشراف الأساسية (40 أمراً سابقاً)', value: '`/ban` - حظر عضو | `/unban` - فك حظر\n`/kick` - طرد عضو | `/mute` - كتم مؤقت\n`/unmute` - فك كتم | `/clear` - مسح رسائل\n`/warn` - تحذير عضو | `/warns` - سجل التحذيرات\n`/lock` - قفل الروم | `/unlock` - فتح الروم\n`/nuke` - تصفية الشات | `/hide` - إخفاء الروم\n`/lockdown` - قفل السيرفر الشامل | `/anti-raid-on` - جدار الحماية' },
+                    { name: '🔨 أوامر الإشراف الأساسية', value: '`/ban` - حظر عضو | `/unban` - فك حظر\n`/kick` - طرد عضو | `/mute` - كتم مؤقت\n`/unmute` - فك كتم | `/clear` - مسح رسائل\n`/warn` - تحذير عضو | `/warns` - سجل التحذيرات\n`/lock` - قفل الروم | `/unlock` - فتح الروم\n`/nuke` - تصفية الشات | `/hide` - إخفاء الروم\n`/lockdown` - قفل السيرفر الشامل | `/anti-raid-on` - جدار الحماية' },
                     { name: '🎙️ أوامر التحكم بالرومات الصوتية والإدارة الجماعية', value: '`/lock-voice` - قفل روم صوتي | `/unlock-voice` - فتح روم صوتي\n`/mute-voice` - كتم بالصوتي | `/unmute-voice` - فك كتم بالصوتي\n`/deafen-voice` - سماعة بالصوتي | `/disconnect-voice` - طرد من الصوتي\n`/limit-voice` - تحديد الحد الأقصى | `/clear-warns-all` - مسح التحذيرات عامة\n`/role-all` - إعطاء رتبة للجميع | `/role-remove-all` - سحب رتبة من الجميع\n`/anti-bot-on` - منع دخول البوتات الغريبة | `/clone-channel` - استنساخ الروم الحالي' }
                 )
-                .setFooter({ text: `تم تنظيم الصلاحيات بنجاح • إجمالي الأوامر: 68 أمراً متاحاً`, iconURL: guild.iconURL() })
+                .setFooter({ text: `تم تنظيم الصلاحيات بنجاح • إجمالي الأوامر: 67 أمراً متاحاً`, iconURL: guild.iconURL() })
                 .setTimestamp();
 
             return interaction.reply({ embeds: [embed] });
         }
 
-        // ---- تنفيذ الـ 20 أمراً الإدارية والصوتية السابقة ----
+        // ---- تنفيذ الأوامر الإدارية والصوتية والإشرافية المتبقية ----
         if (commandName === 'lock-voice') {
             const chan = options.getChannel('channel'); if (chan.type !== ChannelType.GuildVoice) return interaction.reply({ content: '❌ اختر روم صوتي فقط.', ephemeral: true });
             await chan.permissionOverwrites.edit(guild.roles.everyone, { Connect: false }); await interaction.reply(`🔒 تم قفل الروم الصوتي بنجاح: ${chan}`);
@@ -304,7 +298,6 @@ client.on('interactionCreate', async (interaction) => {
         if (commandName === 'anti-bot-on') { globalAntiBot = true; await interaction.reply('🛡️ تم تفعيل جدار حظر ومنع دخول البوتات الغريبة بنجاح.'); }
         if (commandName === 'anti-bot-off') { globalAntiBot = false; await interaction.reply('🟢 تم إيقاف حظر دخول البوتات والسماح لها بشكل طبيعي.'); }
 
-        // ---- تنفيذ الـ 40 أمراً الإشرافية السابقة بدون أي تعديل ----
         if (commandName === 'setup-logs') {
             const logChan = options.getChannel('channel'); if (logChan.type !== ChannelType.GuildText) return interaction.reply({ content: '❌ اختر قناة نصية.', ephemeral: true });
             dbData.settings.logChannelID = logChan.id; await dbData.save(); return interaction.reply({ content: `✅ تم تعيين قناة اللوج في: ${logChan}`, ephemeral: true });
@@ -312,11 +305,6 @@ client.on('interactionCreate', async (interaction) => {
         if (commandName === 'setup-welcome') {
             const welcomeChan = options.getChannel('channel'); if (welcomeChan.type !== ChannelType.GuildText) return interaction.reply({ content: '❌ يرجى اختيار قناة نصية صالحة لإرسال الترحيب.', ephemeral: true });
             dbData.settings.welcomeChannelID = welcomeChan.id; await dbData.save(); return interaction.reply({ content: `✅ تم تفعيل وإعداد نظام الترحيب المطور بنجاح في قناة: ${welcomeChan}`, ephemeral: true });
-        }
-        if (commandName === 'setup-ticket') {
-            const embed = new EmbedBuilder().setTitle('🎫 مركز الدعم الفني والبطاقات').setDescription('مرحباً بك! اضغط على الزر أدناه لفتح تذكرة جديدة.').setColor('#2b2d31');
-            const btn = new ButtonBuilder().setCustomId('open_ticket').setLabel('فتح تذكرة دعم').setStyle(ButtonStyle.Secondary).setEmoji('📩');
-            await interaction.reply({ content: '✅ تم إرسال نظام التكت بنجاح!', ephemeral: true }); await channel.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(btn)] });
         }
         if (commandName === 'setup-advanced-ticket') {
             const title = options.getString('title'); const description = options.getString('description'); const image = options.getString('image'); const sectionsRaw = options.getString('sections');
@@ -413,7 +401,6 @@ client.on('interactionCreate', async (interaction) => {
         }
     }
 
-    // === تفاعلات المودال والأزرار وقوائم اختيار التكت المتقدمة ===
     if (interaction.isStringSelectMenu() && interaction.customId === 'advanced_ticket_select') {
         const selectedSection = interaction.values[0];
         const modal = new ModalBuilder().setCustomId(`advanced_ticket_modal_${selectedSection}`).setTitle(`🎫 تذكرة: ${selectedSection}`);
@@ -422,11 +409,6 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     if (interaction.isButton()) {
-        if (interaction.customId === 'open_ticket') {
-            const modal = new ModalBuilder().setCustomId('ticket_modal_일반').setTitle('🎫 فتح تذكرة جديدة');
-            const reason = new TextInputBuilder().setCustomId('ticket_reason').setLabel("ما سبب فتح التذكرة؟").setStyle(TextInputStyle.Paragraph).setRequired(true);
-            modal.addComponents(new ActionRowBuilder().addComponents(reason)); await interaction.showModal(modal);
-        }
         if (interaction.customId === 'claim_ticket') {
             let dbData = await GuildData.findOne({ guildID: interaction.guild.id });
             const hasSupport = interaction.member.roles.cache.has(dbData?.settings?.botSupportRoleID) || interaction.member.permissions.has(PermissionFlagsBits.ManageMessages) || interaction.user.id === BOT_OWNER_ID;
@@ -462,7 +444,6 @@ client.on('interactionCreate', async (interaction) => {
     }
 });
 
-// === مراقبة حماية السبام، المستويات، وحظر البوتات التلقائي (Anti-Bot) ===
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild) return;
     const authId = message.author.id; const now = Date.now();
