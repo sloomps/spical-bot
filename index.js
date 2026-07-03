@@ -58,7 +58,7 @@ mongoose.connect(process.env.MONGO_URI)
 client.once('ready', async () => {
     console.log(`🚀 تم تشغيل البوت بنجاح باسم: ${client.user.tag}`);
     
-    // قائمة الـ 75 أمراً بالكامل دون حذف أي تفصيل
+    // قائمة الـ 80 أمراً بالكامل دون حذف أي تفصيل مع إضافة أمر إرسال إمبيد المخصص
     const commands = [
         { 
             name: 'تثبيت-التذاكر-المتقدمة', 
@@ -147,11 +147,21 @@ client.once('ready', async () => {
         { name: 'تثبيت-الاقتراحات', description: '📌 تحديد القناة النصية المخصصة لاستقبال اقتراحات الأعضاء وإعدادها', options: [{ name: 'القناة', description: 'اختر روم الاقتراحات', type: 7, required: true }] },
         { name: 'اقتراح', description: '💡 تقديم اقتراح جديد ليتم إرساله وتصويت الأعضاء عليه بنظام متطور', options: [{ name: 'الاقتراح', description: 'اكتب تفاصيل اقتراحك هنا ليراه الجميع', type: 3, required: true }] },
         { name: 'تشغيل', description: '🎵 تشغيل الأغاني في الروم الصوتي الخاص بك بدون ديفن مع لوحة تحكم متطورة', options: [{ name: 'الرابط_أو_الاسم', description: 'رابط الأغنية من يوتيوب أو اسمها للبحث عنها', type: 3, required: true }] },
-        { name: 'إرسال-إمبيد-الاقتراحات', description: '📌 إرسال الرسالة الثابتة التي تحتوي على زر كتابة الاقتراحات في الروم' }
+        { name: 'إرسال-إمبيد-الاقتراحات', description: '📌 إرسال الرسالة الثابتة التي تحتوي على زر كتابة الاقتراحات في الروم' },
+        { 
+            name: 'إرسال-إمبيد', 
+            description: '📢 إرسال إمبيد مخصص ومنسق من اختيارك إلى قناة معينة',
+            options: [
+                { name: 'القناة', description: 'اختر الروم المراد إرسال الإمبيد بداخلها', type: 7, required: true },
+                { name: 'العنوان', description: 'اكتب عنوان الإمبيد الرئيسي', type: 3, required: true },
+                { name: 'الوصف', description: 'اكتب نص أو محتوى الإمبيد الكامل', type: 3, required: true },
+                { name: 'اللون', description: 'كود اللون بالهكس (مثال: #ff0000) أو اتركه للافتراضي', type: 3, required: false }
+            ]
+        }
     ];
     
     await client.application.commands.set(commands).catch(console.error);
-    console.log('🔹 تم تحديث قائمة الأوامر وتثبيتها بنجاح دون أي حذف!');
+    console.log('🔹 تم تحديث قائمة الأوامر وتثبيتها بنجاح مع إضافة الأوامر الجديدة!');
 
     client.guilds.cache.forEach(async (guild) => {
         try { const firstInvites = await guild.invites.fetch(); invitesCache.set(guild.id, new Map(firstInvites.map(invite => [invite.code, invite.uses]))); } catch { }
@@ -171,7 +181,6 @@ client.on('interactionCreate', async (interaction) => {
     if (interaction.isChatInputCommand()) {
         const { commandName, options, guild, member, channel, user } = interaction;
 
-        // جلب البيانات أو تهيئتها لضمان عدم وجود undefined وحفظ أيدي السيرفر بشكل دائم
         let dbData = await GuildData.findOne({ guildID: guild.id });
         if (!dbData) {
             dbData = new GuildData({ guildID: guild.id, settings: {} });
@@ -191,8 +200,8 @@ client.on('interactionCreate', async (interaction) => {
             return interaction.reply({ content: '❌ خطأ أمني: هذا الحساب يمتلك حصانة المالك المطلق، لا يمكنك استخدام أوامر البوت عليه!', ephemeral: true });
         }
 
-        const adminCommands = ['قفل-شامل', 'فتح-شامل', 'رتبة-للجميع', 'سحب-من-الجميع', 'تشغيل-مضاد-الهجمات', 'إيقاف-مضاد-الهجمات', 'منع-البوتات', 'سماح-البوتات', 'تحديث-البوت', 'تعيين-رتبة-الادارة', 'تعيين-رتبة-المشرفين', 'تعيين-رتبة-الدعم', 'تصفير-التحذيرات', 'تثبيت-قناة-المستويات', 'سجن-الرتبة', 'تثبيت-الاقتراحات', 'إرسال-إمبيد-الاقتراحات'];
-        const modCommands = ['حظر', 'فك-الحظر', 'طرد', 'كتم', 'فك-الكتم', 'مسح', 'تحذير', 'مسح-التحذيرات', 'قفل', 'فتح', 'الوضع-البطيء', 'إضافة-رتبة', 'إزالة-رتبة', 'اسم-مستعار', 'تطهير', 'إخفاء', 'إظهار', 'رتبة-مؤقتة', 'كتم-الرتبة', 'تحدث-الرتبة', 'تجريد-الرتب', 'حظر-جماعي', 'حظر-ناعم', 'إنشاء-رتبة', 'حذف-رتبة', 'إنشاء-قناة', 'حذف-قناة', 'تبطئة-الكل', 'إلغاء-تبطئة-الكل', 'حجر-صحي', 'فك-الحجر', 'تنظيف-البوتات', 'عرض-صلاحيات', 'قفل-الصوتي', 'فتح-الصوتي', 'كتم-الصوتي', 'فك-كتم-الصوتي', 'تعطيل-السماعة', 'تفعيل-السماعة', 'فصل-الصوتي', 'تبطئة-الصوتي', 'حدد-الصوتي', 'إخفاء-الصوتي', 'إظهار-الصوتي', 'إلغاء-التباطئة', 'مسح-رسائل-البوتات', 'استنساخ-القناة', 'قول'];
+        const adminCommands = ['قفل-شامل', 'فتح-شامل', 'رتبة-للجميع', 'سحب-من-الجميع', 'تشغيل-مضاد-الهجمات', 'إيقاف-مضاد-الهجمات', 'منع-البوتات', 'سماح-البوتات', 'تحديث-البوت', 'تعيين-رتبة-الادارة', 'تعيين-رتبة-المشرفين', 'تعيين-رتبة-الدعم', 'تصفير-التحذيرات', 'تثبيت-قناة-المستويات', 'سجن-الرتبة', 'تثبيت-الاقتراحات', 'إرسال-إمبيد-الاقتراحات', 'إرسال-إمبيد'];
+        const modCommands = ['حظر', 'فك-الحظر', 'طرد', 'كتم', 'فك-الكتم', 'مسح', 'تحذير', 'التحذيرات', 'مسح-التحذيرات', 'قفل', 'فتح', 'الوضع-البطيء', 'إضافة-رتبة', 'إزالة-رتبة', 'اسم-مستعار', 'تطهير', 'إخفاء', 'إظهار', 'رتبة-مؤقتة', 'كتم-الرتبة', 'تحدث-الرتبة', 'تجريد-الرتب', 'حظر-جماعي', 'حظر-ناعم', 'إنشاء-رتبة', 'حذف-رتبة', 'إنشاء-قناة', 'حذف-قناة', 'تبطئة-الكل', 'إلغاء-تبطئة-الكل', 'حجر-صحي', 'فك-الحجر', 'تنظيف-البوتات', 'عرض-صلاحيات', 'قفل-الصوتي', 'فتح-الصوتي', 'كتم-الصوتي', 'فك-كتم-الصوتي', 'تعطيل-السماعة', 'تفعيل-السماعة', 'فصل-الصوتي', 'تبطئة-الصوتي', 'حدد-الصوتي', 'إخفاء-الصوتي', 'إظهار-الصوتي', 'إلغاء-التباطئة', 'مسح-رسائل-البوتات', 'استنساخ-القناة', 'قول'];
 
         if (adminCommands.includes(commandName) && !isAdmin) {
             return interaction.reply({ content: '❌ هذا الأمر مخصص فقط لرتبة الإدارة العليا (Admin Role) أو مالك البوت.', ephemeral: true });
@@ -201,7 +210,32 @@ client.on('interactionCreate', async (interaction) => {
             return interaction.reply({ content: '❌ هذا الأمر مخصص للمشرفين (Mod Role) فما فوق.', ephemeral: true });
         }
 
-        // 📌 [تحديث جذري ومضمون] تثبيت روم الاقتراحات وإجبار قاعدة البيانات على الإحساس بالتغيير وحفظه
+        // 📌 أمر إرسال إمبيد المخصص والجديد بالكامل
+        if (commandName === 'إرسال-إمبيد') {
+            const targetChan = options.getChannel('القناة');
+            const embTitle = options.getString('العنوان');
+            const embDesc = options.getString('الوصف');
+            const embColor = options.getString('اللون') || '#2b2d31';
+
+            if (targetChan.type !== ChannelType.GuildText) {
+                return interaction.reply({ content: '❌ يرجى اختيار روم نصي صالح لإرسال الإمبيد بداخله.', ephemeral: true });
+            }
+
+            const customEmbed = new EmbedBuilder()
+                .setTitle(embTitle)
+                .setDescription(embDesc)
+                .setColor(embColor.startsWith('#') ? embColor : `#${embColor}`)
+                .setTimestamp()
+                .setFooter({ text: guild.name, iconURL: guild.iconURL() });
+
+            try {
+                await targetChan.send({ embeds: [customEmbed] });
+                return interaction.reply({ content: `✅ تم إرسال الإمبيد المخصص بنجاح إلى القناة: ${targetChan}`, ephemeral: true });
+            } catch (err) {
+                return interaction.reply({ content: '❌ تعذر إرسال الإمبيد. يرجى التحقق من صلاحيات البوت في الروم أو كود اللون المدخل.', ephemeral: true });
+            }
+        }
+
         if (commandName === 'تثبيت-الاقتراحات') {
             const sugChan = options.getChannel('القناة');
             if (sugChan.type !== ChannelType.GuildText) return interaction.reply({ content: '❌ يرجى اختيار روم نصي.', ephemeral: true });
@@ -220,7 +254,6 @@ client.on('interactionCreate', async (interaction) => {
             return interaction.reply({ content: `✅ تم تثبيت روم الاقتراحات بنجاح في: ${sugChan}`, ephemeral: true });
         }
 
-        // 📌 [تحديث جذري ومضمون] إرسال إمبيد الزر الثابت الخاص بالاقتراحات بعد جلب البيانات بشكل نقي
         if (commandName === 'إرسال-إمبيد-الاقتراحات') {
             let freshData = await GuildData.findOne({ guildID: guild.id });
             if (!freshData || !freshData.settings || !freshData.settings.suggestionChannelID) {
@@ -237,18 +270,18 @@ client.on('interactionCreate', async (interaction) => {
                 .setColor('#2b2d31')
                 .setFooter({ text: guild.name, iconURL: guild.iconURL() });
 
+            // 🎨 تحويل لون الزر إلى اللون الباهت (Secondary / رمادي غامق - أسود)
             const sugRow = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
                     .setCustomId('open_suggestion_modal')
                     .setLabel('اضغط لكتابة اقتراحك 📝')
-                    .setStyle(ButtonStyle.Primary)
+                    .setStyle(ButtonStyle.Secondary)
             );
 
             await sugChannel.send({ embeds: [sugEmbed], components: [sugRow] });
             return interaction.reply({ content: `✅ تم إرسال إمبيد الاقتراحات بنجاح داخل الروم: ${sugChannel}`, ephemeral: true });
         }
 
-        // 📌 [تحديث جذري ومضمون] أمر كتابة الاقتراح عبر سلاش كوماند المباشر
         if (commandName === 'اقتراح') {
             const sugText = options.getString('الاقتراح');
             let freshData = await GuildData.findOne({ guildID: guild.id });
@@ -354,10 +387,11 @@ client.on('interactionCreate', async (interaction) => {
                     .setColor('#2ecc71')
                     .setFooter({ text: 'تحكم بالبث المباشر عبر الأزرار أدناه' });
 
+                // 🎨 تحويل أزرار الميوزك بالكامل إلى اللون الباهت (Secondary / الأسود والرمادي الداكن)
                 const row = new ActionRowBuilder().addComponents(
                     new ButtonBuilder().setCustomId('music_pause').setLabel('⏸️ إيقاف مؤقت').setStyle(ButtonStyle.Secondary),
-                    new ButtonBuilder().setCustomId('music_resume').setLabel('▶️ استئناف').setStyle(ButtonStyle.Success),
-                    new ButtonBuilder().setCustomId('music_stop').setLabel('⏹️ إيقاف وفصل').setStyle(ButtonStyle.Danger)
+                    new ButtonBuilder().setCustomId('music_resume').setLabel('▶️ استئناف').setStyle(ButtonStyle.Secondary),
+                    new ButtonBuilder().setCustomId('music_stop').setLabel('⏹️ إيقاف وفصل').setStyle(ButtonStyle.Secondary)
                 );
 
                 return interaction.editReply({ embeds: [embed], components: [row] });
@@ -395,6 +429,7 @@ client.on('interactionCreate', async (interaction) => {
                     '`/قول` - تجعل البوت يكرر الكلام الذي تكتبه خلفه بالكامل\n' +
                     '`/اقتراح` - تقديم اقتراح جديد ليتم إرساله وتصويت الأعضاء عليه\n' +
                     '`/إرسال-إمبيد-الاقتراحات` - إرسال الرسالة الثابتة بـ زر لكتابة الاقتراحات\n' +
+                    '`/إرسال-إمبيد` - إرسال رسالة إمبيد مخصصة ومنسقة بالكامل لروم معينة\n' +
                     '`/تشغيل` - تشغيل الأغاني في الروم الصوتي مع لوحة تحكم متطورة\n' +
                     '`/معلومات-السيرفر` - عرض تقرير أمني وتقني كامل وشامل عن إحصائيات السيرفر\n' +
                     '`/عرض-رتب-البوت` - استعراض رتب الحماية والإدارة الحالية للبوت\n' +
@@ -676,7 +711,12 @@ client.on('interactionCreate', async (interaction) => {
             if (!hasSupport) return interaction.reply({ content: '❌ هذا الزر مخصص لطاقم الدعم الفني فقط.', ephemeral: true });
             
             await interaction.reply({ content: `🔒 تم استلام التذكرة بواسطة المساعد: ${interaction.user}` });
-            const disabledRow = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('claim_ticket').setLabel('تم الاستلام').setStyle(ButtonStyle.Success).setDisabled(true), new ButtonBuilder().setCustomId('close_ticket').setLabel('إغلاق التذكرة').setStyle(ButtonStyle.Danger));
+            
+            // 🎨 أزرار التذاكر باهتة (Secondary)
+            const disabledRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('claim_ticket').setLabel('تم الاستلام').setStyle(ButtonStyle.Secondary).setDisabled(true), 
+                new ButtonBuilder().setCustomId('close_ticket').setLabel('إغلاق التذكرة').setStyle(ButtonStyle.Secondary)
+            );
             await interaction.message.edit({ components: [disabledRow] });
         }
         if (interaction.customId === 'close_ticket') {
@@ -690,7 +730,6 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     if (interaction.isModalSubmit()) {
-        // 📌 [تحديث جذري ومضمون] نظام معالجة المودال وقراءة البيانات بشكل نقي من قاعدة البيانات للتحقق من الروم
         if (interaction.customId === 'submit_suggestion_modal') {
             const sugText = interaction.fields.getTextInputValue('suggestion_field');
             let freshData = await GuildData.findOne({ guildID: interaction.guild.id });
@@ -723,7 +762,12 @@ client.on('interactionCreate', async (interaction) => {
             const sectionName = interaction.customId.replace('advanced_ticket_modal_', ''); const reason = interaction.fields.getTextInputValue('ticket_reason');
             const chan = await interaction.guild.channels.create({ name: `🎫-${sectionName}-${interaction.user.username}`, type: ChannelType.GuildText, permissionOverwrites: [{ id: interaction.guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] }, { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }, { id: client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }] });
             const embed = new EmbedBuilder().setTitle(`🎫 تذكرة جديدة | قسم ${sectionName}`).setDescription(`مرحباً بك يا ${interaction.user} في تذكرتك المخصصة لقسم **[ ${sectionName} ]**.\n\n**تفاصيل طلبك:**\n\`\`\`text\n${reason}\n\`\`\``).setColor('#2b2d31').setTimestamp();
-            const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('claim_ticket').setLabel('استلام التذكرة').setStyle(ButtonStyle.Success), new ButtonBuilder().setCustomId('close_ticket').setLabel('إغلاق التذكرة').setStyle(ButtonStyle.Danger));
+            
+            // 🎨 أزرار التذاكر الجديدة باهتة وموحدة (Secondary)
+            const row = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('claim_ticket').setLabel('استلام التذكرة').setStyle(ButtonStyle.Secondary), 
+                new ButtonBuilder().setCustomId('close_ticket').setLabel('إغلاق التذكرة').setStyle(ButtonStyle.Secondary)
+            );
             await chan.send({ embeds: [embed], components: [row] }); await interaction.reply({ content: `✅ تم فتح تذكرتك بنجاح في: ${chan}`, ephemeral: true });
         }
     }
