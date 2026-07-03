@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits, Collection, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, TextInputBuilder, TextInputStyle, ModalBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, TextInputBuilder, TextInputStyle, ModalBuilder, ChannelType, PermissionFlagsBits, StringSelectMenuBuilder } = require('discord.js');
 const mongoose = require('mongoose');
 
 const client = new Client({
@@ -31,6 +31,16 @@ client.once('ready', async () => {
     const commands = [
         // الأنظمة السابقة
         { name: 'setup-ticket', description: 'إعداد نظام تذاكر الدعم الفني الحديث بالسيرفر' },
+        { 
+            name: 'setup-advanced-ticket', 
+            description: '⚙️ إعداد نظام تذاكر متطور بأقسام وصور مخصصة من اختيارك',
+            options: [
+                { name: 'title', description: 'عنوان الإمبيد الرئيسي', type: 3, required: true },
+                { name: 'description', description: 'وصف أو إرشادات التكت', type: 3, required: true },
+                { name: 'image', description: 'رابط صورة أو بنر للتكت (رابط URL وازر ينتهي بـ png أو jpg)', type: 3, required: true },
+                { name: 'sections', description: 'الأقسام مفصولة بفاصلة (مثال: دعم فني, شكاوى, مبيعات)', type: 3, required: true }
+            ]
+        },
         { name: 'setup-logs', description: 'تحديد قناة إرسال لوقات السيرفر المتطورة', options: [{ name: 'channel', description: 'اختر قناة اللوج', type: 7, required: true }] },
         { name: 'rank', description: 'عرض مستواك الحالي ونقاط الخبرة الخاصة بك' },
         { name: 'leaderboard', description: 'عرض قائمة أعلى 10 أعضاء متفاعلين في السيرفر' },
@@ -80,7 +90,7 @@ client.once('ready', async () => {
     ];
     
     await client.application.commands.set(commands).catch(console.error);
-    console.log('🔹 تم تسجيل كافة الأنظمة و 40 أمراً إدارياً بنجاح مع تطوير التكت الجديد!');
+    console.log('🔹 تم تسجيل كافة الأنظمة و 41 أمراً إدارياً مع نظام الأقسام المطور بالتكت!');
 
     client.guilds.cache.forEach(async (guild) => {
         try { const firstInvites = await guild.invites.fetch(); invitesCache.set(guild.id, new Map(firstInvites.map(invite => [invite.code, invite.uses]))); } catch { }
@@ -110,7 +120,6 @@ client.on('interactionCreate', async (interaction) => {
             return interaction.reply({ content: '❌ عذراً، لا تمتلك الصلاحيات الإدارية الكافية لتنفيذ هذه الأوامر الأمنية.', ephemeral: true });
         }
 
-        // ---- إعداد اللوج ----
         if (commandName === 'setup-logs') {
             const logChan = options.getChannel('channel');
             if (logChan.type !== ChannelType.GuildText) return interaction.reply({ content: '❌ اختر قناة نصية.', ephemeral: true });
@@ -119,24 +128,53 @@ client.on('interactionCreate', async (interaction) => {
             return interaction.reply({ content: `✅ تم تعيين قناة اللوج في: ${logChan}`, ephemeral: true });
         }
 
-        // ---- أمر التكت المطور الجمالي ----
+        // ---- أمر إعداد التكت العادي السابف ----
         if (commandName === 'setup-ticket') {
             if (!member.permissions.has(PermissionFlagsBits.Administrator)) return interaction.reply({ content: '❌ للإدارة فقط.', ephemeral: true });
-            
-            // تصميم مريح وجديد للعين لرسالة فتح التذاكر الأساسية
-            const embed = new EmbedBuilder()
-                .setTitle('🎫 مركز الدعم الفني والبطاقات')
-                .setDescription('مرحباً بك! إذا واجهتك مشكلة أو كنت بحاجة إلى استفسار، يرجى الضغط على الزر أدناه ليقوم فريق الإدارة بمساعدتك في أقرب وقت.')
-                .setColor('#2b2d31') // لون دارك مريح للعين متناسق مع الديسكورد الجديد
-                .setImage('https://i.imgur.com/your-default-banner.png') // يمكنك استبدال الرابط بـ بنر أو صورة سيرفرك المخصصة لتظهر بشكل رائع
-                .setFooter({ text: 'نظام الدعم الفني التلقائي الآمن', iconURL: guild.iconURL() });
-                
+            const embed = new EmbedBuilder().setTitle('🎫 مركز الدعم الفني والبطاقات').setDescription('مرحباً بك! اضغط على الزر أدناه لفتح تذكرة جديدة.').setColor('#2b2d31');
             const btn = new ButtonBuilder().setCustomId('open_ticket').setLabel('فتح تذكرة دعم').setStyle(ButtonStyle.Secondary).setEmoji('📩');
-            await interaction.reply({ content: '✅ تم إرسال نظام التكت المطور والجميل بنجاح!', ephemeral: true });
+            await interaction.reply({ content: '✅ تم إرسال نظام التكت بنجاح!', ephemeral: true });
             await channel.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(btn)] });
         }
 
-        // ---- باقي الأوامر السابقة بدون أي تغيير ----
+        // 🌟 أمر التكت الاحترافي المتطور الجديد بالأقسام والصور الكاملة 🌟
+        if (commandName === 'setup-advanced-ticket') {
+            if (!member.permissions.has(PermissionFlagsBits.Administrator)) return interaction.reply({ content: '❌ عذراً، هذا الأمر مخصص للإدارة العليا فقط.', ephemeral: true });
+            
+            const title = options.getString('title');
+            const description = options.getString('description');
+            const image = options.getString('image');
+            const sectionsRaw = options.getString('sections');
+
+            // معالجة أسماء الأقسام وتحويلها لمصفوفة لتغذية القائمة المنسدلة
+            const sections = sectionsRaw.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            if (sections.length === 0) return interaction.reply({ content: '❌ يرجى كتابة قسم واحد على الأقل بشكل صحيح.', ephemeral: true });
+
+            const embed = new EmbedBuilder()
+                .setTitle(title)
+                .setDescription(`${description}\n\n**📌 الأقسام المتاحة حالياً:**\n${sections.map(s => `• \`${s}\``).join('\n')}`)
+                .setColor('#2b2d31')
+                .setImage(image)
+                .setFooter({ text: 'اختر القسم المناسب لمشكلتك من القائمة أدناه لفتح تذكرة دقيقة', iconURL: guild.iconURL() });
+
+            // بناء القائمة المنسدلة (Dropdown Menu) بالأقسام المحددة
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId('advanced_ticket_select')
+                .setPlaceholder('📁 اضغط هنا لاختيار القسم المناسب للتذكرة...')
+                .addOptions(sections.map(s => ({
+                    label: s,
+                    description: `فتح تذكرة جديدة في قسم: ${s}`,
+                    value: s,
+                    emoji: '🎫'
+                })));
+
+            const row = new ActionRowBuilder().addComponents(selectMenu);
+            
+            await interaction.reply({ content: '✅ تم إنشاء وإعداد نظام التذاكر المتقدم بالأقسام والصور بنجاح!', ephemeral: true });
+            await channel.send({ embeds: [embed], components: [row] });
+        }
+
+        // ---- باقي الأوامر الـ 40 السابقة بدون أي تغيير لحفظ المشروع ----
         if (commandName === 'rank') {
             const data = await GuildData.findOne({ guildID: guild.id }); const userLevel = data?.levels.find(l => l.userID === user.id);
             if (!userLevel) return interaction.reply('📊 لا يوجد سجل تفاعل لك بعد.');
@@ -251,10 +289,20 @@ client.on('interactionCreate', async (interaction) => {
         }
     }
 
-    // === تفاعلات التكت المطور الجمالي والأزرار ===
+    // === تفاعلات التكت المطور الجمالي والأزرار وقوائم الاختيار ===
+    if (interaction.isStringSelectMenu() && interaction.customId === 'advanced_ticket_select') {
+        const selectedSection = interaction.values[0]; // جلب اسم القسم المختار من المنيو
+        
+        // إظهار المودال لملء سبب التكت لحفظ الخصوصية والنظام
+        const modal = new ModalBuilder().setCustomId(`advanced_ticket_modal_${selectedSection}`).setTitle(`🎫 تذكرة: ${selectedSection}`);
+        const reason = new TextInputBuilder().setCustomId('ticket_reason').setLabel("ما هو سبب/تفاصيل تذكرتك؟").setStyle(TextInputStyle.Paragraph).setRequired(true);
+        modal.addComponents(new ActionRowBuilder().addComponents(reason)); 
+        await interaction.showModal(modal);
+    }
+
     if (interaction.isButton()) {
         if (interaction.customId === 'open_ticket') {
-            const modal = new ModalBuilder().setCustomId('ticket_modal').setTitle('🎫 فتح تذكرة جديدة');
+            const modal = new ModalBuilder().setCustomId('ticket_modal_일반').setTitle('🎫 فتح تذكرة جديدة');
             const reason = new TextInputBuilder().setCustomId('ticket_reason').setLabel("ما سبب فتح التذكرة؟").setStyle(TextInputStyle.Paragraph).setRequired(true);
             modal.addComponents(new ActionRowBuilder().addComponents(reason)); await interaction.showModal(modal);
         }
@@ -277,12 +325,14 @@ client.on('interactionCreate', async (interaction) => {
         }
     }
 
-    if (interaction.isModalSubmit() && interaction.customId === 'ticket_modal') {
+    // معالجة تسليم مودال الأقسام المتقدمة
+    if (interaction.isModalSubmit() && interaction.customId.startsWith('advanced_ticket_modal_')) {
+        const sectionName = interaction.customId.replace('advanced_ticket_modal_', '');
         const reason = interaction.fields.getTextInputValue('ticket_reason');
         
-        // إنشاء الغرفة
+        // إنشاء الغرفة باسم يتضمن القسم المختار لسهولة التعرف عليها من فريق الإدارة
         const chan = await interaction.guild.channels.create({
-            name: `🎫-${interaction.user.username}`, type: ChannelType.GuildText,
+            name: `🎫-${sectionName}-${interaction.user.username}`, type: ChannelType.GuildText,
             permissionOverwrites: [
                 { id: interaction.guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
                 { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
@@ -290,12 +340,11 @@ client.on('interactionCreate', async (interaction) => {
             ]
         });
 
-        // رسالة إمبيد منسقة ومريحة داخل روم التكت الجديد
+        // رسالة إمبيد أنيقة وجميلة مريحة للعين داخل الروم الجديد
         const embed = new EmbedBuilder()
-            .setTitle('🎫 تم إنشاء التذكرة بنجاح')
-            .setDescription(`أهلاً بك يا ${interaction.user} في تذكرتك الخاصة.\n\n**السبب المكتوب:**\n\`\`\`text\n${reason}\n\`\`\`\nالرجاء انتظار فريق الدعم الفني دون تكرار الإشارات، سيتم الرد عليك في أقرب وقت ممكن.`)
+            .setTitle(`🎫 تذكرة جديدة | قسم ${sectionName}`)
+            .setDescription(`مرحباً بك يا ${interaction.user} في تذكرتك المخصصة لقسم **[ ${sectionName} ]**.\n\n**تفاصيل طلبك:**\n\`\`\`text\n${reason}\n\`\`\`\nفريق دعم القسم سيتواجد معك قريباً جداً، يرجى الانتظار بشكل منظم.`)
             .setColor('#2b2d31')
-            .setImage('https://i.imgur.com/your-ticket-inside-banner.png') // يمكنك إضافة صورة مخصصة تظهر داخل روم التكت نفسه لتبدو خلابة ومريحة
             .setTimestamp();
 
         const row = new ActionRowBuilder().addComponents(
@@ -304,28 +353,24 @@ client.on('interactionCreate', async (interaction) => {
         );
         
         await chan.send({ embeds: [embed], components: [row] });
-        await interaction.reply({ content: `✅ تم فتح تذكرتك في: ${chan}`, ephemeral: true });
+        await interaction.reply({ content: `✅ تم فتح تذكرتك بنجاح بقسم **${sectionName}** في: ${chan}`, ephemeral: true });
 
-        // 🌟 الميزة المطورة: إرسال تفاصيل التذكرة في الخاص (DM) للعضو بشكل أنيق ومريح جداً للعين
+        // إرسال تفاصيل التذكرة والأقسام في الخاص (DM) بشكل رائع
         const dmEmbed = new EmbedBuilder()
-            .setTitle('📩 تفاصيل تذكرتك الجديدة')
-            .setDescription(`مرحباً **${interaction.user.username}**، لقد قمت بفتح تذكرة دعم فني جديدة بنجاح في سيرفر **${interaction.guild.name}**.`)
+            .setTitle('📩 تأكيد فتح تذكرة بالقسم')
+            .setDescription(`أهلاً **${interaction.user.username}**، تم تسجيل تذكرتك الرسمية بنجاح بقسم **${sectionName}** في سيرفر **${interaction.guild.name}**.`)
             .addFields(
-                { name: '🌐 اسم السيرفر:', value: `\`${interaction.guild.name}\``, inline: true },
-                { name: '🎫 قناة التذكرة:', value: `${chan}`, inline: true },
-                { name: '📝 سبب التذكرة:', value: `\`\`\`text\n${reason}\n\`\`\``, inline: false }
+                { name: '🌐 السيرفر:', value: `\`${interaction.guild.name}\``, inline: true },
+                { name: '📁 القسم المختار:', value: `\`${sectionName}\``, inline: true },
+                { name: '🎫 الروم المخصص:', value: `${chan}`, inline: true },
+                { name: '📝 تفاصيلك المرسلة:', value: `\`\`\`text\n${reason}\n\`\`\``, inline: false }
             )
-            .setColor('#2b2d31') // نفس الدرجة الهادئة والمريحة للعين
-            .setImage('https://i.imgur.com/your-dm-banner.png') // يمكنك وضع صورة أو بانر خاص في رسالة الخاص لإعطاء طابع جذاب واحترافي
+            .setColor('#2b2d31')
             .setThumbnail(interaction.guild.iconURL({ dynamic: true }))
-            .setFooter({ text: 'يرجى إبقاء خاصك مفتوحاً لتلقي تحديثات الدعم الفني.' })
             .setTimestamp();
 
-        await interaction.user.send({ embeds: [dmEmbed] }).catch(() => {
-            console.log(`فشل إرسال رسالة خاصة لـ ${interaction.user.tag} لأن الخاص لديه مغلق.`);
-        });
-
-        await sendLog(interaction.guild, new EmbedBuilder().setTitle('📩 إنشاء تذكرة').setDescription(`**بواسطة:** ${interaction.user}\n**الروم:** ${chan}\n**السبب:** ${reason}`).setColor('#2ecc71').setTimestamp());
+        await interaction.user.send({ embeds: [dmEmbed] }).catch(() => {});
+        await sendLog(interaction.guild, new EmbedBuilder().setTitle('📩 إنشاء تذكرة بقسم').setDescription(`**بواسطة:** ${interaction.user}\n**القسم:** ${sectionName}\n**الروم:** ${chan}`).setColor('#2ecc71').setTimestamp());
     }
 });
 
