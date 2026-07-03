@@ -17,7 +17,7 @@ const client = new Client({
 const GuildData = require('./models/guildSchema');
 
 // 👑 ضع هنا الـ ID الخاص بحسابك الشخصي لتكون المالك المطلق للبوت وتحصل على الحصانة الكاملة
-const BOT_OWNER_ID = '1507841424186675220'; 
+const BOT_OWNER_ID = 'YOUR_DISCORD_USER_ID_HERE'; 
 
 const antiSpamMap = new Map();
 const invitesCache = new Map();
@@ -103,7 +103,7 @@ client.once('ready', async () => {
         { name: 'تبطئة-الصوتي', description: '⏳ تفعيل وضع التباطؤ لإرسال الكلمات بالروم الصوتي', options: [{ name: 'القناة', description: 'الروم الصوتي', type: 7, required: true }, { name: 'الثواني', description: 'عدد الثواني', type: 4, required: true }] },
         { name: 'حدد-الصوتي', description: '👥 تحديد الحد الأقصى للأعضاء المسموح بدخولهم للروم الصوتي', options: [{ name: 'القناة', description: 'الروم الصوتي', type: 7, required: true }, { name: 'الحد', description: 'العدد الأقصى (0 لإلغاء الحد)', type: 4, required: true }] },
         { name: 'إخفاء-الصوتي', description: '🙈 إخفاء الروم الصوتي المكتوب عن الأعضاء في السيرفر', options: [{ name: 'القناة', description: 'الروم الصوتي', type: 7, required: true }] },
-        { name: 'إظهار-الصوتي', description: '👀 إظهار الروم الصوتي المخفي للأعضاء في السيرفر', options: [{ name: 'القناة', description: 'الروم الصوتي', type: 7, required: true }] },
+        { name: 'إظهار-الصوتي', description: '👀 إظهار الروم الصوتي المخفي للأعضاء in السيرفر', options: [{ name: 'القناة', description: 'الروم الصوتي', type: 7, required: true }] },
         { name: 'تصفير-التحذيرات', description: '🧼 مسح كافة التحذيرات المسجلة لجميع أعضاء السيرفر نهائياً' },
         { name: 'حظر-مؤقت', description: '⏳ حظر مؤقت لعضو من السيرفر يزول تلقائياً بعد الوقت المحدد', options: [{ name: 'العضو', description: 'العضو', type: 6, required: true }, { name: 'المدة', description: 'المدة بالساعات', type: 4, required: true }, { name: 'السبب', description: 'السبب', type: 3 }] },
         { name: 'إلغاء-التبطئة', description: '🛑 إيقاف وضع التباطؤ تماماً في الروم الحالي الحالي دون انتظار' },
@@ -120,11 +120,14 @@ client.once('ready', async () => {
         { name: 'تعيين-رتبة-المشرفين', description: '🛡️ تعيين رتبة المشرفين المسموح لهم بإصدار العقوبات والميوت', options: [{ name: 'الرتبة', description: 'اختر الرتبة', type: 8, required: true }] },
         { name: 'تعيين-رتبة-الدعم', description: '🎫 تعيين رتبة الدعم الفني الخاصة بإدارة واستلام التذاكر', options: [{ name: 'الرتبة', description: 'اختر الرتبة', type: 8, required: true }] },
         { name: 'عرض-رتب-البوت', description: '📋 استعراض رتب الحماية والإدارة الحالية التي تم ضبطها في البوت' },
-        { name: 'فحص-الحصانة', description: '👑 فحص وتأكيد تفعيل جدار الحصانة المطلقة الخاص بمالك البوت' }
+        { name: 'فحص-الحصانة', description: '👑 فحص وتأكيد تفعيل جدار الحصانة المطلقة الخاص بمالك البوت' },
+        
+        // 🔒 الأمر الجديد المطلوب للسجن والبلاك ليست للرتبة
+        { name: 'سجن-الرتبة', description: '⛔ منع رتبة كاملة من الكتابة في جميع رومات السيرفر النصية (بلاك ليست/سجن)', options: [{ name: 'الرتبة', description: 'اختر الرتبة المستهدفة لحظرها من الكتابة', type: 8, required: true }] }
     ];
     
     await client.application.commands.set(commands).catch(console.error);
-    console.log('🔹 تم تحديث قائمة الأوامر وإزالة نظام التذاكر العادي!');
+    console.log('🔹 تم تحديث قائمة الأوامر بنجاح!');
 
     client.guilds.cache.forEach(async (guild) => {
         try { const firstInvites = await guild.invites.fetch(); invitesCache.set(guild.id, new Map(firstInvites.map(invite => [invite.code, invite.uses]))); } catch { }
@@ -161,7 +164,7 @@ client.on('interactionCreate', async (interaction) => {
             return interaction.reply({ content: '❌ خطأ أمني: هذا الحساب يمتلك حصانة المالك المطلق، لا يمكنك استخدام أوامر البوت عليه!', ephemeral: true });
         }
 
-        const adminCommands = ['قفل-شامل', 'فتح-شامل', 'رتبة-للجميع', 'سحب-من-الجميع', 'تشغيل-مضاد-الهجمات', 'إيقاف-مضاد-الهجمات', 'منع-البوتات', 'سماح-البوتات', 'تحديث-البوت', 'تعيين-رتبة-الادارة', 'تعيين-رتبة-المشرفين', 'تعيين-رتبة-الدعم', 'تصفير-التحذيرات', 'تثبيت-قناة-المستويات'];
+        const adminCommands = ['قفل-شامل', 'فتح-شامل', 'رتبة-للجميع', 'سحب-من-الجميع', 'تشغيل-مضاد-الهجمات', 'إيقاف-مضاد-الهجمات', 'منع-البوتات', 'سماح-البوتات', 'تحديث-البوت', 'تعيين-رتبة-الادارة', 'تعيين-رتبة-المشرفين', 'تعيين-رتبة-الدعم', 'تصفير-التحذيرات', 'تثبيت-قناة-المستويات', 'سجن-الرتبة'];
         const modCommands = ['حظر', 'فك-الحظر', 'طرد', 'كتم', 'فك-الكتم', 'مسح', 'تحذير', 'مسح-التحذيرات', 'قفل', 'فتح', 'الوضع-البطيء', 'إضافة-رتبة', 'إزالة-رتبة', 'اسم-مستعار', 'تطهير', 'إخفاء', 'إظهار', 'رتبة-مؤقتة', 'كتم-الرتبة', 'تحدث-الرتبة', 'تجريد-الرتب', 'حظر-جماعي', 'حظر-ناعم', 'إنشاء-رتبة', 'حذف-رتبة', 'إنشاء-قناة', 'حذف-قناة', 'تبطئة-الكل', 'إلغاء-تبطئة-الكل', 'حجر-صحي', 'فك-الحجر', 'تنظيف-البوتات', 'عرض-صلاحيات', 'قفل-الصوتي', 'فتح-الصوتي', 'كتم-الصوتي', 'فك-كتم-الصوتي', 'تعطيل-السماعة', 'تفعيل-السماعة', 'فصل-الصوتي', 'تبطئة-الصوتي', 'حدد-الصوتي', 'إخفاء-الصوتي', 'إظهار-الصوتي', 'إلغاء-التبطئة', 'مسح-رسائل-البوتات', 'استنساخ-القناة'];
 
         if (adminCommands.includes(commandName) && !isAdmin) {
@@ -190,6 +193,30 @@ client.on('interactionCreate', async (interaction) => {
             const levelChan = options.getChannel('القناة'); if (levelChan.type !== ChannelType.GuildText) return interaction.reply({ content: '❌ اختر قناة نصية.', ephemeral: true });
             dbData.settings.levelChannelID = levelChan.id; await dbData.save(); return interaction.reply({ content: `✅ تم تحديد قناة إرسال الليفل بنجاح في: ${levelChan}`, ephemeral: true });
         }
+        
+        // ⛔ تنفيذ الأمر الجديد لسجن الرتبة (Blacklist)
+        if (commandName === 'سجن-الرتبة') {
+            const targetRole = options.getRole('الرتبة');
+            if (targetRole.id === guild.roles.everyone.id) return interaction.reply({ content: '❌ لا يمكنك تطبيق البلاك ليست على رتبة everyone@ بالكامل.', ephemeral: true });
+            
+            await interaction.reply(`⏳ جاري تطبيق نظام البلاك ليست على رتبة ${targetRole} في كافة الرومات النصية...`);
+            
+            let successfulChannels = 0;
+            guild.channels.cache.forEach(async (ch) => {
+                if (ch.type === ChannelType.GuildText) {
+                    try {
+                        await ch.permissionOverwrites.edit(targetRole, {
+                            SendMessages: false,
+                            AddReactions: false
+                        });
+                        successfulChannels++;
+                    } catch (err) { }
+                }
+            });
+            
+            return interaction.followUp(`⛔ تم وضع رتبة ${targetRole} في البلاك ليست بنجاح. يمكنهم الآن رؤية الرومات فقط ولكن لا يمكنهم الكتابة أو التفاعل.`);
+        }
+
         if (commandName === 'عرض-رتب-البوت') {
             const embed = new EmbedBuilder()
                 .setTitle('📋 سجل رتب وإعدادات البوت الحالية')
@@ -217,13 +244,13 @@ client.on('interactionCreate', async (interaction) => {
                 .setDescription('مرحباً بك في قائمة المساعدة المنسقة. إليك كافة الأوامر المتاحة بالسيرفر وتفاصيل عملها:')
                 .setColor('#2b2d31')
                 .addFields(
-                    { name: '👑 نظام الرتب والصلاحيات الجديد للمالك', value: '`/تعيين-رتبة-الادارة` - تعيين رتبة الإدارة العليا\n`/تعيين-رتبة-المشرفين` - تعيين رتبة المشرفين\n`/تعيين-رتبة-الدعم` - تعيين رتبة الدعم الفني\n`/عرض-رتب-البوت` - عرض رتب البوت | `/فحص-الحصانة` - فحص حصانة المالك' },
+                    { name: '👑 نظام الرتب والصلاحيات الجديد للمالك', value: '`/تعيين-رتبة-الادارة` - تعيين رتبة الإدارة العليا\n`/تعيين-رتبة-المشرفين` - تعيين رتبة المشرفين\n`/تعيين-رتبة-الدعم` - تعيين رتبة الدعم الفني\n`/عرض-رتب-البوت` - عرض رتب البوت | `/فحص-الحصانة` - فحص حصانة المالك\n`/سجن-الرتبة` - منع رتبة كاملة من الكتابة' },
                     { name: '🎫 أنظمة التذاكر المتقدمة والأقسام', value: '`/تثبيت-التذاكر-المتقدمة` - إعداد تكت متطور بالأقسام والصور والخيارات التفاعلية' },
                     { name: '👋 أنظمة الإعدادات والترحيب والتفاعل', value: '`/تثبيت-الترحيب` - تعيين روم الترحيب المطور\n`/تثبيت-السجلات` - تعيين روم السجلات واللوق\n`/تثبيت-قناة-المستويات` - تحديد روم إرسال ترقيات التفاعل\n`/المستوى` - عرض مستواك وتفاعلك الحالي\n`/الصدارة` - قائمة أعلى المتفاعلين\n`/يومي` - استلام المكافأة اليومية' },
                     { name: '🔨 أوامر الإشراف الأساسية', value: '`/حظر` - حظر عضو | `/فك-الحظر` - فك حظر\n`/طرد` - طرد عضو | `/كتم` - كتم مؤقت\n`/فك-الكتم` - فك كتم | `/مسح` - مسح رسائل\n`/تحذير` - تحذير عضو | `/التحذيرات` - سجل التحذيرات\n`/قفل` - قفل الروم | `/فتح` - فتح الروم\n`/تطهير` - تصفية الشات | `/إخفاء` - إخفاء الروم\n`/قفل-شامل` - قفل السيرفر الشامل | `/تشغيل-مضاد-الهجمات` - جدار الحماية' },
                     { name: '🎙️ أوامر التحكم بالرومات الصوتية والإدارة الجماعية', value: '`/قفل-الصوتي` - قفل روم صوتي | `/فتح-الصوتي` - فتح روم صوتي\n`/كتم-الصوتي` - كتم بالصوتي | `/فك-كتم-الصوتي` - فك كتم بالصوتي\n`/تعطيل-السماعة` - سماعة بالصوتي | `/فصل-الصوتي` - طرد من الصوتي\n`/حدد-الصوتي` - تحديد الحد الأقصى | `/تصفير-التحذيرات` - مسح التحذيرات عامة\n`/رتبة-للجميع` - إعطاء رتبة للجميع | `/سحب-من-الجميع` - سحب رتبة من الجميع\n`/منع-البوتات` - منع دخول البوتات الغريبة | `/استنساخ-القناة` - استنساخ الروم الحالي' }
                 )
-                .setFooter({ text: `تم تنظيم الصلاحيات بنجاح • إجمالي الأوامر: 68 أمراً متاحاً`, iconURL: guild.iconURL() })
+                .setFooter({ text: `تم تنظيم الصلاحيات بنجاح • إجمالي الأوامر: 69 أمراً متاحاً`, iconURL: guild.iconURL() })
                 .setTimestamp();
 
             return interaction.reply({ embeds: [embed] });
@@ -480,16 +507,10 @@ client.on('messageCreate', async (message) => {
     const xpNeeded = (userLevel.level + 1) * 100;
     
     if (userLevel.xp >= xpNeeded) { 
-        userLevel.level += 1; 
-        userLevel.xp = 0; 
-        
-        // التحقق من وجود قناة مخصصة للمستويات، وإرسال الرسالة فيها مع المنشن
+        userLevel.level += 1; userLevel.xp = 0; 
         const levelChannelID = data.settings?.levelChannelID;
         const targetChannel = message.guild.channels.cache.get(levelChannelID) || message.channel;
-        
-        if (targetChannel) {
-            await targetChannel.send(`🎉 كفو ${message.author}! وصلت لـ ليفل **${userLevel.level}**!`); 
-        }
+        if (targetChannel) { await targetChannel.send(`🎉 كفو ${message.author}! وصلت لـ ليفل **${userLevel.level}**!`); }
     }
     await data.save();
 });
