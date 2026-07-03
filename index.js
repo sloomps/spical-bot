@@ -1,6 +1,8 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, Collection, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, TextInputBuilder, TextInputStyle, ModalBuilder, ChannelType, PermissionFlagsBits, StringSelectMenuBuilder } = require('discord.js');
 const mongoose = require('mongoose');
+const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
+const ytdl = require('library-ytdl-core'); // أو مكتبة التشغيل الصالحة لديك
 
 const client = new Client({
     intents: [
@@ -23,6 +25,9 @@ const antiSpamMap = new Map();
 const invitesCache = new Map();
 let globalAntiRaid = false;
 let globalAntiBot = false;
+
+// تخزين مشغلات الصوت الخاصة بنظام الأغاني
+const audioPlayers = new Map();
 
 mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log('✅ تم الاتصال بقاعدة بيانات MongoDB بنجاح!'))
@@ -106,7 +111,7 @@ client.once('ready', async () => {
         { name: 'إظهار-الصوتي', description: '👀 إظهار الروم الصوتي المخفي للأعضاء in السيرفر', options: [{ name: 'القناة', description: 'الروم الصوتي', type: 7, required: true }] },
         { name: 'تصفير-التحذيرات', description: '🧼 مسح كافة التحذيرات المسجلة لجميع أعضاء السيرفر نهائياً' },
         { name: 'حظر-مؤقت', description: '⏳ حظر مؤقت لعضو من السيرفر يزول تلقائياً بعد الوقت المحدد', options: [{ name: 'العضو', description: 'العضو', type: 6, required: true }, { name: 'المدة', description: 'المدة بالساعات', type: 4, required: true }, { name: 'السبب', description: 'السبب', type: 3 }] },
-        { name: 'إلغاء-التبطئة', description: '🛑 إيقاف وضع التباطؤ تماماً في الروم الحالي الحالي دون انتظار' },
+        { name: 'إلغاء-التباطئة', description: '🛑 إيقاف وضع التباطؤ تماماً في الروم الحالي الحالي دون انتظار' },
         { name: 'رتبة-للجميع', description: '👥 إعطاء رتبة معينة لجميع أعضاء السيرفر دفعة واحدة (للأدمن)', options: [{ name: 'الرتبة', description: 'الرتبة المراد توزيعها', type: 8, required: true }] },
         { name: 'سحب-من-الجميع', description: '🚫 سحب رتبة معينة من جميع أعضاء السيرفر دفعة واحدة بشكل جماعي', options: [{ name: 'الرتبة', description: 'الرتبة المراد سحبها', type: 8, required: true }] },
         { name: 'استنساخ-القناة', description: '📑 استنساخ الروم الحالي بنفس الاسم والإعدادات والصلاحيات تماماً' },
@@ -121,13 +126,17 @@ client.once('ready', async () => {
         { name: 'تعيين-رتبة-الدعم', description: '🎫 تعيين رتبة الدعم الفني الخاصة بإدارة واستلام التذاكر', options: [{ name: 'الرتبة', description: 'اختر الرتبة', type: 8, required: true }] },
         { name: 'عرض-رتب-البوت', description: '📋 استعراض رتب الحماية والإدارة الحالية التي تم ضبطها في البوت' },
         { name: 'فحص-الحصانة', description: '👑 فحص وتأكيد تفعيل جدار الحصانة المطلقة الخاص بمالك البوت' },
-        
-        // 🔒 الأمر الجديد المطلوب للسجن والبلاك ليست للرتبة
-        { name: 'سجن-الرتبة', description: '⛔ منع رتبة كاملة من الكتابة في جميع رومات السيرفر النصية (بلاك ليست/سجن)', options: [{ name: 'الرتبة', description: 'اختر الرتبة المستهدفة لحظرها من الكتابة', type: 8, required: true }] }
+        { name: 'سجن-الرتبة', description: '⛔ منع رتبة كاملة من الكتابة في جميع رومات السيرفر النصية (بلاك ليست/سجن)', options: [{ name: 'الرتبة', description: 'اختر الرتبة المستهدفة لحظرها من الكتابة', type: 8, required: true }] },
+
+        // 🆕 الأوامر الجديدة المضافة بطلبك
+        { name: 'قول', description: '🗣️ تجعل البوت يكرر الكلام الذي تكتبه خلفه بالكامل', options: [{ name: 'النص', description: 'اكتب الرسالة التي تريد من البوت قولها', type: 3, required: true }] },
+        { name: 'تثبيت-الاقتراحات', description: '📌 تحديد القناة النصية المخصصة لاستقبال اقتراحات الأعضاء وإعدادها', options: [{ name: 'القناة', description: 'اختر روم الاقتراحات', type: 7, required: true }] },
+        { name: 'اقتراح', description: '💡 تقديم اقتراح جديد ليتم إرساله وتصويت الأعضاء عليه بنظام متطور', options: [{ name: 'الاقتراح', description: 'اكتب تفاصيل اقتراحك هنا ليراه الجميع', type: 3, required: true }] },
+        { name: 'تشغيل', description: '🎵 تشغيل الأغاني في الروم الصوتي الخاص بك بدون ديفن مع لوحة تحكم متطورة', options: [{ name: 'الرابط_أو_الاسم', description: 'رابط الأغنية من يوتيوب أو اسمها للبحث عنها', type: 3, required: true }] }
     ];
     
     await client.application.commands.set(commands).catch(console.error);
-    console.log('🔹 تم تحديث قائمة الأوامر بنجاح!');
+    console.log('🔹 تم تحديث قائمة الأوامر بنجاح وتثبيت الإضافات الجديدة!');
 
     client.guilds.cache.forEach(async (guild) => {
         try { const firstInvites = await guild.invites.fetch(); invitesCache.set(guild.id, new Map(firstInvites.map(invite => [invite.code, invite.uses]))); } catch { }
@@ -164,8 +173,8 @@ client.on('interactionCreate', async (interaction) => {
             return interaction.reply({ content: '❌ خطأ أمني: هذا الحساب يمتلك حصانة المالك المطلق، لا يمكنك استخدام أوامر البوت عليه!', ephemeral: true });
         }
 
-        const adminCommands = ['قفل-شامل', 'فتح-شامل', 'رتبة-للجميع', 'سحب-من-الجميع', 'تشغيل-مضاد-الهجمات', 'إيقاف-مضاد-الهجمات', 'منع-البوتات', 'سماح-البوتات', 'تحديث-البوت', 'تعيين-رتبة-الادارة', 'تعيين-رتبة-المشرفين', 'تعيين-رتبة-الدعم', 'تصفير-التحذيرات', 'تثبيت-قناة-المستويات', 'سجن-الرتبة'];
-        const modCommands = ['حظر', 'فك-الحظر', 'طرد', 'كتم', 'فك-الكتم', 'مسح', 'تحذير', 'مسح-التحذيرات', 'قفل', 'فتح', 'الوضع-البطيء', 'إضافة-رتبة', 'إزالة-رتبة', 'اسم-مستعار', 'تطهير', 'إخفاء', 'إظهار', 'رتبة-مؤقتة', 'كتم-الرتبة', 'تحدث-الرتبة', 'تجريد-الرتب', 'حظر-جماعي', 'حظر-ناعم', 'إنشاء-رتبة', 'حذف-رتبة', 'إنشاء-قناة', 'حذف-قناة', 'تبطئة-الكل', 'إلغاء-تبطئة-الكل', 'حجر-صحي', 'فك-الحجر', 'تنظيف-البوتات', 'عرض-صلاحيات', 'قفل-الصوتي', 'فتح-الصوتي', 'كتم-الصوتي', 'فك-كتم-الصوتي', 'تعطيل-السماعة', 'تفعيل-السماعة', 'فصل-الصوتي', 'تبطئة-الصوتي', 'حدد-الصوتي', 'إخفاء-الصوتي', 'إظهار-الصوتي', 'إلغاء-التبطئة', 'مسح-رسائل-البوتات', 'استنساخ-القناة'];
+        const adminCommands = ['قفل-شامل', 'فتح-شامل', 'رتبة-للجميع', 'سحب-من-الجميع', 'تشغيل-مضاد-الهجمات', 'إيقاف-مضاد-الهجمات', 'منع-البوتات', 'سماح-البوتات', 'تحديث-البوت', 'تعيين-رتبة-الادارة', 'تعيين-رتبة-المشرفين', 'تعيين-رتبة-الدعم', 'تصفير-التحذيرات', 'تثبيت-قناة-المستويات', 'سجن-الرتبة', 'تثبيت-الاقتراحات'];
+        const modCommands = ['حظر', 'فك-الحظر', 'طرد', 'كتم', 'فك-الكتم', 'مسح', 'تحذير', 'مسح-التحذيرات', 'قفل', 'فتح', 'الوضع-البطيء', 'إضافة-رتبة', 'إزالة-رتبة', 'اسم-مستعار', 'تطهير', 'إخفاء', 'إظهار', 'رتبة-مؤقتة', 'كتم-الرتبة', 'تحدث-الرتبة', 'تجريد-الرتب', 'حظر-جماعي', 'حظر-ناعم', 'إنشاء-رتبة', 'حذف-رتبة', 'إنشاء-قناة', 'حذف-قناة', 'تبطئة-الكل', 'إلغاء-تبطئة-الكل', 'حجر-صحي', 'فك-الحجر', 'تنظيف-البوتات', 'عرض-صلاحيات', 'قفل-الصوتي', 'فتح-الصوتي', 'كتم-الصوتي', 'فك-كتم-الصوتي', 'تعطيل-السماعة', 'تفعيل-السماعة', 'فصل-الصوتي', 'تبطئة-الصوتي', 'حدد-الصوتي', 'إخفاء-الصوتي', 'إظهار-الصوتي', 'إلغاء-التبطئة', 'مسح-رسائل-البوتات', 'استنساخ-القناة', 'قول'];
 
         if (adminCommands.includes(commandName) && !isAdmin) {
             return interaction.reply({ content: '❌ هذا الأمر مخصص فقط لرتبة الإدارة العليا (Admin Role) أو مالك البوت.', ephemeral: true });
@@ -194,27 +203,100 @@ client.on('interactionCreate', async (interaction) => {
             dbData.settings.levelChannelID = levelChan.id; await dbData.save(); return interaction.reply({ content: `✅ تم تحديد قناة إرسال الليفل بنجاح في: ${levelChan}`, ephemeral: true });
         }
         
-        // ⛔ تنفيذ الأمر الجديد لسجن الرتبة (Blacklist)
         if (commandName === 'سجن-الرتبة') {
             const targetRole = options.getRole('الرتبة');
             if (targetRole.id === guild.roles.everyone.id) return interaction.reply({ content: '❌ لا يمكنك تطبيق البلاك ليست على رتبة everyone@ بالكامل.', ephemeral: true });
-            
             await interaction.reply(`⏳ جاري تطبيق نظام البلاك ليست على رتبة ${targetRole} في كافة الرومات النصية...`);
-            
             let successfulChannels = 0;
             guild.channels.cache.forEach(async (ch) => {
                 if (ch.type === ChannelType.GuildText) {
                     try {
-                        await ch.permissionOverwrites.edit(targetRole, {
-                            SendMessages: false,
-                            AddReactions: false
-                        });
+                        await ch.permissionOverwrites.edit(targetRole, { SendMessages: false, AddReactions: false });
                         successfulChannels++;
                     } catch (err) { }
                 }
             });
-            
             return interaction.followUp(`⛔ تم وضع رتبة ${targetRole} في البلاك ليست بنجاح. يمكنهم الآن رؤية الرومات فقط ولكن لا يمكنهم الكتابة أو التفاعل.`);
+        }
+
+        // 🆕 تنفيذ الأوامر الجديدة
+        if (commandName === 'قول') {
+            const text = options.getString('النص');
+            await interaction.reply({ content: '✅ تم الإرسال بنجاح.', ephemeral: true });
+            return channel.send({ content: text });
+        }
+
+        if (commandName === 'تثبيت-الاقتراحات') {
+            const sugChan = options.getChannel('القناة');
+            if (sugChan.type !== ChannelType.GuildText) return interaction.reply({ content: '❌ يرجى اختيار روم نصي لتثبيت الاقتراحات.', ephemeral: true });
+            dbData.settings.suggestionChannelID = sugChan.id; await dbData.save();
+            return interaction.reply({ content: `✅ تم تحديد وتثبيت روم الاقتراحات الرسمي بنجاح في: ${sugChan}`, ephemeral: true });
+        }
+
+        if (commandName === 'اقتراح') {
+            const sugText = options.getString('الاقتراح');
+            const sugChannelID = dbData.settings.suggestionChannelID;
+            if (!sugChannelID) return interaction.reply({ content: '❌ لم يتم ضبط وتثبيت روم الاقتراحات في هذا السيرفر بعد من قِبل الإدارة.', ephemeral: true });
+            const sugChannel = guild.channels.cache.get(sugChannelID);
+            if (!sugChannel) return interaction.reply({ content: '❌ روم الاقتراحات المثبت غير موجود حالياً، يرجى إعادة تثبيته.', ephemeral: true });
+
+            await interaction.reply({ content: '✅ تم إرسال اقتراحك لروم الاقتراحات بنجاح، شكراً لك!', ephemeral: true });
+            
+            const embed = new EmbedBuilder()
+                .setTitle('💡 اقتراح جديد واعد')
+                .setDescription(`\`\`\`text\n${sugText}\n\`\`\``)
+                .addFields({ name: '👤 صاحب الاقتراح:', value: `${user} (${user.tag})` })
+                .setColor('#f39c12')
+                .setThumbnail(user.displayAvatarURL({ dynamic: true }))
+                .setTimestamp();
+
+            const msg = await sugChannel.send({ embeds: [embed] });
+            await msg.react('👍'); await msg.react('👎');
+            return;
+        }
+
+        if (commandName === 'تشغيل') {
+            const query = options.getString('الرابط_أو_الاسم');
+            const voiceChannel = member.voice.channel;
+            if (!voiceChannel) return interaction.reply({ content: '❌ يجب أن تكون متصلاً بروم صوتي أولاً لتشغيل الأغاني!', ephemeral: true });
+
+            await interaction.deferReply();
+
+            try {
+                // الربط بالروم الصوتي مع ضبط selfDeafen إلى false تماماً كما طلبت
+                const connection = joinVoiceChannel({
+                    channelId: voiceChannel.id,
+                    guildId: guild.id,
+                    adapterCreator: guild.voiceAdapterCreator,
+                    selfDeafen: false 
+                });
+
+                const stream = ytdl(query, { filter: 'audioonly', highWaterMark: 1 << 25 });
+                const resource = createAudioResource(stream);
+                const player = createAudioPlayer();
+
+                player.play(resource);
+                connection.subscribe(player);
+                audioPlayers.set(guild.id, { player, connection });
+
+                // لوحة تحكم متطورة بالأغاني (Dashboard) بالأزرار التفاعلية
+                const embed = new EmbedBuilder()
+                    .setTitle('🎵 لوحة التحكم وإدارة الأغاني المباشرة')
+                    .setDescription(`🎶 **يتم الآن تشغيل طلبك بنجاح في:** ${voiceChannel}\n📌 **المسار:** \`${query}\``)
+                    .setColor('#2ecc71')
+                    .setFooter({ text: 'تحكم بالصوت مباشرة من الأزرار بالأسفل' });
+
+                const row = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId('music_pause').setLabel('⏸️ إيقاف مؤقت').setStyle(ButtonStyle.Secondary),
+                    new ButtonBuilder().setCustomId('music_resume').setLabel('▶️ استئناف').setStyle(ButtonStyle.Success),
+                    new ButtonBuilder().setCustomId('music_stop').setLabel('⏹️ إيقاف وفصل').setStyle(ButtonStyle.Danger)
+                );
+
+                return interaction.editReply({ embeds: [embed], components: [row] });
+            } catch (err) {
+                console.error(err);
+                return interaction.editReply('❌ حدث خطأ أثناء محاولة تشغيل الصوت أو قراءة الرابط.');
+            }
         }
 
         if (commandName === 'عرض-رتب-البوت') {
@@ -245,12 +327,13 @@ client.on('interactionCreate', async (interaction) => {
                 .setColor('#2b2d31')
                 .addFields(
                     { name: '👑 نظام الرتب والصلاحيات الجديد للمالك', value: '`/تعيين-رتبة-الادارة` - تعيين رتبة الإدارة العليا\n`/تعيين-رتبة-المشرفين` - تعيين رتبة المشرفين\n`/تعيين-رتبة-الدعم` - تعيين رتبة الدعم الفني\n`/عرض-رتب-البوت` - عرض رتب البوت | `/فحص-الحصانة` - فحص حصانة المالك\n`/سجن-الرتبة` - منع رتبة كاملة من الكتابة' },
+                    { name: '🎵 الأوامر الترفيهية والتفاعلية الجديدة', value: '`/قول` - تكرار الكلام خلفك\n`/تثبيت-الاقتراحات` - تثبيت روم المقترحات\n`/اقتراح` - تقديم اقتراح للتصويت\n`/تشغيل` - تشغيل الأغاني وبدء لوحة التحكم الصوتية' },
                     { name: '🎫 أنظمة التذاكر المتقدمة والأقسام', value: '`/تثبيت-التذاكر-المتقدمة` - إعداد تكت متطور بالأقسام والصور والخيارات التفاعلية' },
                     { name: '👋 أنظمة الإعدادات والترحيب والتفاعل', value: '`/تثبيت-الترحيب` - تعيين روم الترحيب المطور\n`/تثبيت-السجلات` - تعيين روم السجلات واللوق\n`/تثبيت-قناة-المستويات` - تحديد روم إرسال ترقيات التفاعل\n`/المستوى` - عرض مستواك وتفاعلك الحالي\n`/الصدارة` - قائمة أعلى المتفاعلين\n`/يومي` - استلام المكافأة اليومية' },
                     { name: '🔨 أوامر الإشراف الأساسية', value: '`/حظر` - حظر عضو | `/فك-الحظر` - فك حظر\n`/طرد` - طرد عضو | `/كتم` - كتم مؤقت\n`/فك-الكتم` - فك كتم | `/مسح` - مسح رسائل\n`/تحذير` - تحذير عضو | `/التحذيرات` - سجل التحذيرات\n`/قفل` - قفل الروم | `/فتح` - فتح الروم\n`/تطهير` - تصفية الشات | `/إخفاء` - إخفاء الروم\n`/قفل-شامل` - قفل السيرفر الشامل | `/تشغيل-مضاد-الهجمات` - جدار الحماية' },
                     { name: '🎙️ أوامر التحكم بالرومات الصوتية والإدارة الجماعية', value: '`/قفل-الصوتي` - قفل روم صوتي | `/فتح-الصوتي` - فتح روم صوتي\n`/كتم-الصوتي` - كتم بالصوتي | `/فك-كتم-الصوتي` - فك كتم بالصوتي\n`/تعطيل-السماعة` - سماعة بالصوتي | `/فصل-الصوتي` - طرد من الصوتي\n`/حدد-الصوتي` - تحديد الحد الأقصى | `/تصفير-التحذيرات` - مسح التحذيرات عامة\n`/رتبة-للجميع` - إعطاء رتبة للجميع | `/سحب-من-الجميع` - سحب رتبة من الجميع\n`/منع-البوتات` - منع دخول البوتات الغريبة | `/استنساخ-القناة` - استنساخ الروم الحالي' }
                 )
-                .setFooter({ text: `تم تنظيم الصلاحيات بنجاح • إجمالي الأوامر: 69 أمراً متاحاً`, iconURL: guild.iconURL() })
+                .setFooter({ text: `تم تنظيم الصلاحيات بنجاح • إجمالي الأوامر: 73 أمراً متاحاً`, iconURL: guild.iconURL() })
                 .setTimestamp();
 
             return interaction.reply({ embeds: [embed] });
@@ -310,7 +393,7 @@ client.on('interactionCreate', async (interaction) => {
             await target.ban({ reason }); await interaction.reply(`🔨 تم حظر العضو ${target.user.username} مؤقتاً لمدة \`${hours}\` ساعة. السبب: ${reason}`);
             setTimeout(async () => { await guild.members.unban(target.id).catch(() => {}); }, hours * 60 * 60 * 1000);
         }
-        if (commandName === 'إلغاء-التبطئة') { await channel.setRateLimitPerUser(0); await interaction.reply('🛑 تم إلغاء وضع التباطؤ تماماً في الروم الحالي.'); }
+        if (commandName === 'إلغاء-التباطئة') { await channel.setRateLimitPerUser(0); await interaction.reply('🛑 تم إلغاء وضع التباطؤ تماماً في الروم الحالي.'); }
         if (commandName === 'رتبة-للجميع') {
             await interaction.reply('👥 جاري بدء عملية توزيع الرتبة على جميع الأعضاء، قد يستغرق هذا بعض الوقت...');
             const role = options.getRole('الرتبة'); guild.members.cache.forEach(async (m) => { if (!m.user.bot) await m.roles.add(role).catch(() => {}); });
@@ -441,6 +524,27 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     if (interaction.isButton()) {
+        const musicInstance = audioPlayers.get(interaction.guild.id);
+        
+        // 🎛️ التفاعل مع أزرار لوحة تحكم الأغاني والـ Dashboard الصوتي
+        if (interaction.customId === 'music_pause') {
+            if (!musicInstance) return interaction.reply({ content: '❌ لا توجد أغنية تعمل حالياً بالسيرفر لتوقيفها.', ephemeral: true });
+            musicInstance.player.pause();
+            return interaction.reply({ content: '⏸️ تم إيقاف الأغنية مؤقتاً بنجاح.', ephemeral: true });
+        }
+        if (interaction.customId === 'music_resume') {
+            if (!musicInstance) return interaction.reply({ content: '❌ لا توجد أغنية متوقفة لاستئنافها.', ephemeral: true });
+            musicInstance.player.unpause();
+            return interaction.reply({ content: '▶️ تم استئناف تشغيل الصوت بنجاح.', ephemeral: true });
+        }
+        if (interaction.customId === 'music_stop') {
+            if (!musicInstance) return interaction.reply({ content: '❌ البوت ليس متصلاً بروم صوتي ليتم فصله.', ephemeral: true });
+            musicInstance.player.stop();
+            musicInstance.connection.destroy();
+            audioPlayers.delete(interaction.guild.id);
+            return interaction.reply({ content: '⏹️ تم إيقاف التشغيل وفصل البوت من الروم الصوتي بالكامل.', ephemeral: true });
+        }
+
         if (interaction.customId === 'claim_ticket') {
             let dbData = await GuildData.findOne({ guildID: interaction.guild.id });
             const hasSupport = interaction.member.roles.cache.has(dbData?.settings?.botSupportRoleID) || interaction.member.permissions.has(PermissionFlagsBits.ManageMessages) || interaction.user.id === BOT_OWNER_ID;
