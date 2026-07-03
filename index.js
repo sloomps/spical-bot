@@ -50,6 +50,9 @@ let globalAntiBot = false;
 // خريطة لتخزين مشغلات الصوت للرومات
 const audioPlayers = new Map();
 
+// خريطة مؤقتة لحفظ معلومات التذاكر أثناء عملها لغرض اللوق والخاص
+const activeTickets = new Map();
+
 // الاتصال بقاعدة البيانات
 mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log('✅ تم الاتصال بقاعدة بيانات MongoDB بنجاح!'))
@@ -73,15 +76,15 @@ client.once('ready', async () => {
         { name: 'تثبيت-السجلات', description: 'تحديد قناة إرسال لوقات السيرفر المتطورة', options: [{ name: 'القناة', description: 'اختر قناة اللوج', type: 7, required: true }] },
         { name: 'تثبيت-قناة-المستويات', description: '📊 تحديد القناة المخصصة لإرسال رسائل ترقية ليفل الأعضاء', options: [{ name: 'القناة', description: 'اختر روم ليفل الأعضاء', type: 7, required: true }] },
         { name: 'المستوى', description: 'عرض مستواك الحالي ونقاط الخبرة الخاصة بك' },
-        { name: 'الصدارة', description: 'عرض قائمة أعلى 10 أعضاء متفاعلين في السيرفر' },
+        { name: 'الصدارة', description: 'عرض قائمة أعلى 10 أعضاء متفاعلين in السيرفر' },
         { name: 'يومي', description: 'استلام مكافأتك المالية اليومية' },
         { name: 'حظر', description: '🔨 حظر عضو من السيرفر', options: [{ name: 'العضو', description: 'العضو المراد حظره', type: 6, required: true }, { name: 'السبب', description: 'السبب', type: 3 }] },
         { name: 'فك-الحظر', description: '🔓 فك الحظر عن عضو', options: [{ name: 'المعرف', description: 'ID الشخص المحظور', type: 3, required: true }] },
         { name: 'طرد', description: '👢 طرد عضو من السيرفر', options: [{ name: 'العضو', description: 'العضو المراد طرده', type: 6, required: true }, { name: 'السبب', description: 'السبب', type: 3 }] },
         { name: 'كتم', description: '🔇 كتم عضو (Timeout)', options: [{ name: 'العضو', description: 'العضو', type: 6, required: true }, { name: 'المدة', description: 'المدة بالدقائق', type: 4, required: true }, { name: 'السبب', description: 'السبب', type: 3 }] },
         { name: 'فك-الكتم', description: '🔊 فك الكتم عن عضو', options: [{ name: 'العضو', description: 'العضو', type: 6, required: true }] },
-        { name: 'مسح', description: '🧹 مسح عدد معين من الرسائل', options: [{ name: 'العدد', description: 'عدد الرسائل (1-100)', type: 4, required: true }] },
-        { name: 'تحذير', description: '⚠️ تحذير عضو وتسجيله بقاعدة البيانات', options: [{ name: 'العضو', description: 'العضو', type: 6, required: true }, { name: 'السبب', description: 'السبب', type: 3, required: true }] },
+        { name: 'مسح', description: '🧹 مسح عدد معين من الرسائل أو مسح كل شيء إذا تُرِك فارغاً', options: [{ name: 'العدد', description: 'عدد الرسائل (اتركه فارغاً لمسح القناة بالكامل)', type: 4, required: false }] },
+        { name: 'تحذير', description: '⚠️ تحذير عضو وتسجيله بقاعدة البيانات وإخطاره خاص', options: [{ name: 'العضو', description: 'العضو', type: 6, required: true }, { name: 'السبب', description: 'السبب', type: 3, required: true }] },
         { name: 'التحذيرات', description: '📋 عرض سجل تحذيرات عضو', options: [{ name: 'العضو', description: 'العضو', type: 6, required: true }] },
         { name: 'مسح-التحذيرات', description: '🧼 مسح جميع تحذيرات عضو', options: [{ name: 'العضو', description: 'العضو', type: 6, required: true }] },
         { name: 'قفل', description: '🔒 قفل الروم الحالي لمنع الكتابة' },
@@ -97,7 +100,7 @@ client.once('ready', async () => {
         { name: 'تحديث-البوت', description: '🔄 إعادة تشغيل أنظمة البوت برمجياً (للإدارة العليا فقط)' },
         { name: 'قفل-شامل', description: '🚨 قفل اضطراري شامل لكافة رومات السيرفر لحمايته من التخريب' },
         { name: 'فتح-شامل', description: '🟢 إلغاء القفل الاضطراري وإعادة فتح رومات السيرفر بالكامل' },
-        { name: 'كتم-الرتبة', description: '🔇 منع رتبة معينة من التحدث in هذا الروم فقط', options: [{ name: 'الرتبة', description: 'الرتبة المستهدفة', type: 8, required: true }] },
+        { name: 'كتم-الرتبة', description: '🔇 منع رتبة معينة من التحدث في هذا الروم فقط', options: [{ name: 'الرتبة', description: 'الرتبة المستهدفة', type: 8, required: true }] },
         { name: 'تحدث-الرتبة', description: '🔊 إعادة السماح للرتبة بالتحدث في هذا الروم', options: [{ name: 'الرتبة', description: 'الرتبة المستهدفة', type: 8, required: true }] },
         { name: 'تجريد-الرتب', description: '🛡️ سحب كافة رتب العضو فوراً في حال الاشتباه باختراقه', options: [{ name: 'العضو', description: 'العضو المستهدف', type: 6, required: true }] },
         { name: 'حظر-جماعي', description: '💥 حظر جماعي لعدة حسابات بواسطة الـ IDs يفصل بينهم مسافة', options: [{ name: 'المعرفات', description: 'قائمة المعرفات متبوعة بمسافات', type: 3, required: true }, { name: 'السبب', description: 'السبب', type: 3 }] },
@@ -135,7 +138,7 @@ client.once('ready', async () => {
         { name: 'مسح-رسائل-البوتات', description: '🧹 مسح رسائل البوتات فقط في الروم الحالي لحفظ المظهر والترتيب', options: [{ name: 'العدد', description: 'عدد الرسائل (1-100)', type: 4, required: true }] },
         { name: 'منع-البوتات', description: '🛡️ تفعيل جدار حظر ومنع دخول البوتات الخارجية غير الموثقة للسيرفر' },
         { name: 'سماح-البوتات', description: '🟢 إيقاف نظام حظر دخول البوتات الخارجية والسماح بدخولها بشكل عادي' },
-        { name: 'مساعدة', description: '💡 عرض قائمة جميع أوامر البوت المتاحة وشرح كامل لوظائفها المتقدمة' },
+        { name: 'مساعدة', description: '💡 عرض قائمة جميع أوامر البوت المتاحة شرح كامل لوظائفها المتقدمة' },
         { name: 'تعيين-رتبة-الادارة', description: '⚙️ تعيين رتبة الإدارة العليا المسموح لها بإدارة البوت وسير العمل', options: [{ name: 'الرتبة', description: 'اختر الرتبة', type: 8, required: true }] },
         { name: 'تعيين-رتبة-المشرفين', description: '🛡️ تعيين رتبة المشرفين المسموح لهم بإصدار العقوبات والميوت', options: [{ name: 'الرتبة', description: 'اختر الرتبة', type: 8, required: true }] },
         { name: 'تعيين-رتبة-الدعم', description: '🎫 تعيين رتبة الدعم الفني الخاصة بإدارة واستلام التذاكر', options: [{ name: 'الرتبة', description: 'اختر الرتبة', type: 8, required: true }] },
@@ -143,7 +146,7 @@ client.once('ready', async () => {
         { name: 'فحص-الحصانة', description: '👑 فحص وتأكيد تفعيل جدار الحصانة المطلقة الخاص بمالك البوت' },
         { name: 'سجن-الرتبة', description: '⛔ منع رتبة كاملة من الكتابة في جميع رومات السيرفر النصية (بلاك ليست/سجن)', options: [{ name: 'الرتبة', description: 'اختر الرتبة المستهدفة لحظرها من الكتابة', type: 8, required: true }] },
         { name: 'قول', description: '🗣️ تجعل البوت يكرر الكلام الذي تكتبه خلفه بالكامل', options: [{ name: 'النص', description: 'اكتب الرسالة التي تريد من البوت قولها', type: 3, required: true }] },
-        { name: 'تثبيت-الاقتراحات', description: '📌 تحديد القناة النصية المخصصة لاستقبال اقتراحات الأعضاء وإعدادها', options: [{ name: 'القناة', description: 'اختر روم الاقتراحات', type: 7, required: true }] },
+        { name: 'تثبيت-الاقتراحات', description: '📌 تحديد القناة النصية المخصصة استقبال اقتراحات الأعضاء وإعدادها', options: [{ name: 'القناة', description: 'اختر روم الاقتراحات', type: 7, required: true }] },
         { name: 'اقتراح', description: '💡 تقديم اقتراح جديد ليتم إرساله وتصويت الأعضاء عليه بنظام متطور', options: [{ name: 'الاقتراح', description: 'اكتب تفاصيل اقتراحك هنا ليراه الجميع', type: 3, required: true }] },
         { name: 'تشغيل', description: '🎵 تشغيل الأغاني في الروم الصوتي الخاص بك بدون ديفن مع لوحة تحكم متطورة', options: [{ name: 'الرابط_أو_الاسم', description: 'رابط الأغنية من يوتيوب أو اسمها للبحث عنها', type: 3, required: true }] },
         { name: 'إرسال-إمبيد-الاقتراحات', description: '📌 إرسال الرسالة الثابتة التي تحتوي على زر كتابة الاقتراحات في الروم' },
@@ -180,15 +183,9 @@ client.on('interactionCreate', async (interaction) => {
     if (interaction.isChatInputCommand()) {
         const { commandName, options, guild, member, channel, user } = interaction;
 
-        // 🌟 تعديل أمني برمجى هام جداً: التحقق والإنشاء التلقائي لبيانات السيرفر إذا لم تكن موجودة
         let dbData = await GuildData.findOne({ guildID: guild.id });
         if (!dbData) {
-            dbData = new GuildData({ 
-                guildID: guild.id, 
-                settings: {}, 
-                moderation: { warns: [] }, 
-                levels: [] 
-            });
+            dbData = new GuildData({ guildID: guild.id, settings: {}, moderation: { warns: [] }, levels: [] });
             await dbData.save();
         }
         if (!dbData.settings) {
@@ -251,7 +248,7 @@ client.on('interactionCreate', async (interaction) => {
 
             const menu = new StringSelectMenuBuilder()
                 .setCustomId('advanced_ticket_select')
-                .setPlaceholder('اختر القسم المناسب لفتح تذكرة واصلة الدعم')
+                .setPlaceholder('اختر القسم المناسب لفتح تذكرة لمواصلة الدعم')
                 .addOptions(sections.map(s => ({ label: s, value: s, description: `فتح تذكرة جديدة داخل قسم ${s}` })));
 
             const row = new ActionRowBuilder().addComponents(menu);
@@ -479,8 +476,8 @@ client.on('interactionCreate', async (interaction) => {
                     '`/طرد` - طرد عضو من السيرفر فوراً\n' +
                     '`/كتم` - كتم عضو ومنعه من الكتابة (Timeout)\n' +
                     '`/فك-الكتم` - فك الكتم والتايم أوت عن العضو\n' +
-                    '`/مسح` - مسح عدد معين من الرسائل لتنظيف الشات\n' +
-                    '`/تحذير` - تحذير عضو وتسجيله بقاعدة البيانات\n' +
+                    '`/مسح` - مسح عدد من الرسائل أو مسح الشات بالكامل إذا تُرِك فارغاً\n' +
+                    '`/تحذير` - تحذير عضو وتسجيله بقاعدة البيانات مع إرسال رسالة خاصة له\n' +
                     '`/التحذيرات` - عرض سجل تحذيرات عضو معين\n' +
                     '`/مسح-التحذيرات` - مسح جميع تحذيرات عضو محدد\n' +
                     '`/تصفير-التحذيرات` - مسح كافة التحذيرات المسجلة لجميع أعضاء السيرفر\n' +
@@ -513,7 +510,7 @@ client.on('interactionCreate', async (interaction) => {
             await target.voice.setDeafen(true); await interaction.reply(`🎧 تم تعطيل سماعة العضو ${target}.`);
         }
         if (commandName === 'تفعيل-السماعة') {
-            const target = options.getMember('العضو'); if (!target.voice.channel) return interaction.reply({ content: '❌ العضو ليس in روم صوتي.', ephemeral: true });
+            const target = options.getMember('العضو'); if (!target.voice.channel) return interaction.reply({ content: '❌ العضو ليس في روم صوتي.', ephemeral: true });
             await target.voice.setDeafen(false); await interaction.reply(`🎵 تم إعادة تفعيل سماعة العضو ${target}.`);
         }
         if (commandName === 'فصل-الصوتي') {
@@ -572,9 +569,44 @@ client.on('interactionCreate', async (interaction) => {
         }
         if (commandName === 'كتم') { const target = options.getMember('العضو'); const duration = options.getInteger('المدة') * 60 * 1000; await target.timeout(duration, 'أمر إداري'); await interaction.reply(`🔇 تم كتم العضو.`); }
         if (commandName === 'فك-الكتم') { const target = options.getMember('العضو'); await target.timeout(null); await interaction.reply(`🔊 تم فك كتم العضو.`); }
-        if (commandName === 'مسح') { const amount = options.getInteger('العدد'); await channel.bulkDelete(amount, true); await interaction.reply({ content: `🧹 تم مسح الرسائل.`, ephemeral: true }); }
+        
+        if (commandName === 'مسح') { 
+            const amount = options.getInteger('العدد'); 
+            if (amount) {
+                // إذا تم وضع رقم معين للمسح
+                await channel.bulkDelete(amount, true); 
+                await interaction.reply({ content: `🧹 تم مسح \`${amount}\` رسالة بنجاح.`, ephemeral: true }); 
+            } else {
+                // ميزة ذكية: إذا لم يحدد المشرف رقماً، يقوم البوت بتطهير ومسح الروم بالكامل بدون أخطاء
+                await interaction.reply({ content: '⏳ جاري مسح وتطهير الروم بالكامل...', ephemeral: true });
+                const currentPosition = channel.position; 
+                const fullyClonedChannel = await channel.clone(); 
+                await channel.delete().catch(() => {}); 
+                await fullyClonedChannel.setPosition(currentPosition); 
+                await fullyClonedChannel.send({ embeds: [new EmbedBuilder().setDescription('☢️ تم تطهير ومسح الشات بالكامل بنجاح نظيف تماماً!').setColor('#2ecc71')] }); 
+            }
+        }
+        
         if (commandName === 'تحذير') {
-            const target = options.getMember('العضو'); const reason = options.getString('السبب'); dbData.moderation.warns.push({ userID: target.id, reason: reason, moderatorID: user.id }); await dbData.save(); await interaction.reply(`⚠️ تم تحذير العضو.`);
+            const target = options.getMember('العضو'); 
+            const reason = options.getString('السبب'); 
+            dbData.moderation.warns.push({ userID: target.id, reason: reason, moderatorID: user.id }); 
+            await dbData.save(); 
+            
+            // ميزة ذكية: إرسال التحذير للعضو في الخاص مباشرة مع السبب
+            const warnDmEmbed = new EmbedBuilder()
+                .setTitle('⚠️ تنبيه أمني | لقد تلقيت تحذيراً جديداً')
+                .setDescription(`مرحباً بك، نود إخطارك بأنه قد تم تسجيل تحذير رسمي ضد حسابك داخل سيرفر **${guild.name}**.`)
+                .addFields(
+                    { name: '👮 المشرف المسئول:', value: `\`${user.tag}\``, inline: true },
+                    { name: '📝 السبب الموثق للتحذير:', value: `\`\`\`text\n${reason}\n\`\`\`` }
+                )
+                .setColor('#f39c12')
+                .setTimestamp();
+                
+            await target.send({ embeds: [warnDmEmbed] }).catch(() => console.log(`⚠️ تعذر إرسال خاص إلى ${target.user.tag} بسبب إغلاقه للرسائل الخاصة.`));
+            
+            await interaction.reply(`⚠️ تم تحذير العضو ${target} بنجاح وإرسال إخطار فوري له في الخاص.`);
         }
         if (commandName === 'التحذيرات') {
             const target = options.getMember('العضو'); const uWarns = dbData?.moderation.warns.filter(w => w.userID === target.id) || []; if (uWarns.length === 0) return interaction.reply(`😇 نظيف تماماً.`);
@@ -679,6 +711,21 @@ client.on('interactionCreate', async (interaction) => {
             
             await interaction.reply({ content: `🔒 تم استلام التذكرة بواسطة المساعد: ${interaction.user}` });
             
+            // تحديث معلومات التكت بأنها استُلمت للوق
+            const ticketData = activeTickets.get(interaction.channel.id);
+            if (ticketData) {
+                ticketData.claimedBy = interaction.user.tag;
+                activeTickets.set(interaction.channel.id, ticketData);
+            }
+
+            // إرسال لوق الاستلام
+            const claimEmbed = new EmbedBuilder()
+                .setTitle('📥 تذكرة قيد المتابعة')
+                .setDescription(`📌 **الروم:** ${interaction.channel}\n👤 **المستلم:** ${interaction.user}\n👤 **صاحب التكت:** <@${ticketData?.userId || ''}>`)
+                .setColor('#f1c40f')
+                .setTimestamp();
+            await sendLog(interaction.guild, claimEmbed);
+            
             const disabledRow = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId('claim_ticket').setLabel('تم الاستلام').setStyle(ButtonStyle.Secondary).setDisabled(true), 
                 new ButtonBuilder().setCustomId('close_ticket').setLabel('إغلاق التذكرة').setStyle(ButtonStyle.Secondary)
@@ -690,8 +737,47 @@ client.on('interactionCreate', async (interaction) => {
             const hasSupport = dbData?.settings && interaction.member.roles.cache.has(dbData.settings.botSupportRoleID) || interaction.member.permissions.has(PermissionFlagsBits.ManageMessages) || interaction.user.id === BOT_OWNER_ID;
             if (!hasSupport) return interaction.reply({ content: '❌ لا يمكنك إغلاق التذكرة، للمشرفين فقط.', ephemeral: true });
 
-            await interaction.reply('🔒 جاري أرشفة وإغلاق التذكرة خلال 5 ثوانٍ...');
-            setTimeout(async () => { await interaction.channel.delete().catch(() => {}); }, 5000);
+            await interaction.reply('🔒 جاري أرشفة وإغلاق التذكرة وإرسال التقرير للمستخدم...');
+            
+            const ticketData = activeTickets.get(interaction.channel.id);
+            if (ticketData) {
+                // 1. إرسال معلومات التكت بالكامل للعضو في الخاص (DM)
+                const dmEmbed = new EmbedBuilder()
+                    .setTitle('📄 تقرير إغلاق تذكرتك')
+                    .setDescription(`أهلاً بك، تم إغلاق تذكرتك بنجاح في سيرفر **${interaction.guild.name}**. إليك البيانات الموثقة لدينا:`)
+                    .addFields(
+                        { name: '🗂️ القسم:', value: `\`${ticketData.section}\``, inline: true },
+                        { name: '🛠️ استلام المساعد:', value: `\`${ticketData.claimedBy}\``, inline: true },
+                        { name: '📝 سبب الفتح:', value: `\`\`\`text\n${ticketData.reason}\n\`\`\`` }
+                    )
+                    .setColor('#2b2d31')
+                    .setTimestamp();
+
+                const targetUser = await client.users.fetch(ticketData.userId).catch(() => null);
+                if (targetUser) {
+                    await targetUser.send({ embeds: [dmEmbed] }).catch(() => console.log('⚠️ تعذر إرسال رسالة خاصة للمستخدم بسبب إغلاقه للخاص.'));
+                }
+
+                // 2. إرسال لوق إغلاق التكت في روم السجلات
+                const closeEmbed = new EmbedBuilder()
+                    .setTitle('🔒 تم إغلاق التذكرة')
+                    .setDescription(`📌 **اسم الروم المحذوف:** \`${interaction.channel.name}\`\n👤 **المغلق:** ${interaction.user}\n👤 **صاحب التكت الأصل:** <@${ticketData.userId}>\n🗂️ **القسم:** \`${ticketData.section}\``)
+                    .setColor('#e74c3c')
+                    .setTimestamp();
+                await sendLog(interaction.guild, closeEmbed);
+
+                activeTickets.delete(interaction.channel.id);
+            }
+
+            // ميزة ذكية: ريست وتحديث تلقائي لبانل التكت بعد إغلاق التذكرة مباشرة لإعادة تنشيط القائمة المنسدلة
+            if (interaction.message && interaction.message.components.length > 0) {
+                try {
+                    const originalComponents = interaction.message.components;
+                    await interaction.message.edit({ components: originalComponents }).catch(() => {});
+                } catch (err) {}
+            }
+
+            setTimeout(async () => { await interaction.channel.delete().catch(() => {}); }, 4000);
         }
     }
 
@@ -727,15 +813,80 @@ client.on('interactionCreate', async (interaction) => {
         if (interaction.customId.startsWith('advanced_ticket_modal_')) {
             const sectionName = interaction.customId.replace('advanced_ticket_modal_', ''); const reason = interaction.fields.getTextInputValue('ticket_reason');
             const chan = await interaction.guild.channels.create({ name: `🎫-${sectionName}-${interaction.user.username}`, type: ChannelType.GuildText, permissionOverwrites: [{ id: interaction.guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] }, { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }, { id: client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }] });
+            
+            // حفظ معلومات التكت مؤقتاً بالذاكرة لغرض لوقات التكت والإرسال للخاص
+            activeTickets.set(chan.id, {
+                userId: interaction.user.id,
+                username: interaction.user.username,
+                section: sectionName,
+                reason: reason,
+                claimedBy: 'لم تُستلم بعد'
+            });
+
+            // لوق فتح التكت
+            const openEmbed = new EmbedBuilder()
+                .setTitle('🔓 تم فتح تذكرة جديدة')
+                .setDescription(`📌 **الروم:** ${chan}\n👤 **الفاتح:** ${interaction.user}\n🗂️ **القسم:** \`${sectionName}\`\n📝 **السبب الأساسي:** \`${reason}\``)
+                .setColor('#2ecc71')
+                .setTimestamp();
+            await sendLog(interaction.guild, openEmbed);
+
             const embed = new EmbedBuilder().setTitle(`🎫 تذكرة جديدة | قسم ${sectionName}`).setDescription(`مرحباً بك يا ${interaction.user} في تذكرتك المخصصة لقسم **[ ${sectionName} ]**.\n\n**تفاصيل طلبك:**\n\`\`\`text\n${reason}\n\`\`\``).setColor('#2b2d31').setTimestamp();
             
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId('claim_ticket').setLabel('استلام التذكرة').setStyle(ButtonStyle.Secondary), 
                 new ButtonBuilder().setCustomId('close_ticket').setLabel('إغلاق التذكرة').setStyle(ButtonStyle.Secondary)
             );
-            await chan.send({ embeds: [embed], components: [row] }); await interaction.reply({ content: `✅ تم فتح تذكرتك بنجاح في: ${chan}`, ephemeral: true });
+            await chan.send({ embeds: [embed], components: [row] }); 
+            
+            // ميزة ذكية: ريست البانل فوراً بعد الضغط لتفادي تعليق المنيو
+            try {
+                if (interaction.message) {
+                    const originalComponents = interaction.message.components;
+                    await interaction.message.edit({ components: originalComponents }).catch(() => {});
+                }
+            } catch {}
+
+            await interaction.reply({ content: `✅ تم فتح تذكرتك بنجاح في: ${chan}`, ephemeral: true });
         }
     }
+});
+
+// 📁 نظام لوقات الرومات المتطور تلقائياً (إنشاء / تعديل / حذف)
+client.on('channelCreate', async (channel) => {
+    if (!channel.guild) return;
+    const typeMap = { 0: 'نصية 💬', 2: 'صوتية 🔊', 4: 'فئة/Category 📁' };
+    const embed = new EmbedBuilder()
+        .setTitle('🆕 إنشاء روم جديدة')
+        .setDescription(`➕ **اسم الروم:** \`${channel.name}\`\n🆔 **المعرف:** \`${channel.id}\`\n🗂️ **النوع:** \`${typeMap[channel.type] || 'أخرى'}\``)
+        .setColor('#2ecc71')
+        .setTimestamp();
+    await sendLog(channel.guild, embed);
+});
+
+client.on('channelDelete', async (channel) => {
+    if (!channel.guild) return;
+    // نتفادى تكرار لوق التكتات المحذوفة لتنظيم اللوق
+    if (activeTickets.has(channel.id)) return;
+    
+    const embed = new EmbedBuilder()
+        .setTitle('🗑️ حذف روم من السيرفر')
+        .setDescription(`➖ **اسم الروم الذي حُذف:** \`${channel.name}\`\n🆔 **المعرف:** \`${channel.id}\``)
+        .setColor('#e74c3c')
+        .setTimestamp();
+    await sendLog(channel.guild, embed);
+});
+
+client.on('channelUpdate', async (oldChannel, newChannel) => {
+    if (!oldChannel.guild) return;
+    if (oldChannel.name === newChannel.name) return; // لفلترة تعديل الصلاحيات وإظهار الاسم فقط
+    
+    const embed = new EmbedBuilder()
+        .setTitle('⚙️ تعديل اسم روم')
+        .setDescription(`📌 **الروم المعني:** ${newChannel}\n✏️ **الاسم القديم:** \`${oldChannel.name}\`\n🟢 **الاسم الجديد:** \`${newChannel.name}\``)
+        .setColor('#3498db')
+        .setTimestamp();
+    await sendLog(newChannel.guild, embed);
 });
 
 client.on('messageCreate', async (message) => {
