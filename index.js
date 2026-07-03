@@ -1,6 +1,6 @@
+require('dotenv').config();
 const { Client, GatewayIntentBits, Collection, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, TextInputBuilder, TextInputStyle, ModalBuilder, ChannelType, PermissionFlagsBits } = require('discord.js');
 const mongoose = require('mongoose');
-require('dotenv').config();
 
 const client = new Client({
     intents: [
@@ -21,7 +21,6 @@ mongoose.connect(process.env.MONGO_URI)
 client.once('ready', () => {
     console.log(`🚀 تم تشغيل البوت بنجاح باسم: ${client.user.tag}`);
     
-    // تسجيل أوامر السلاش تلقائياً عند التشغيل
     const commands = [
         { name: 'setup-ticket', description: 'إعداد نظام تذاكر الدعم الفني الحديث بالسيرفر' },
         { name: 'rank', description: 'عرض مستواك الحالي ونقاط الخبرة الخاصة بك' },
@@ -33,18 +32,21 @@ client.once('ready', () => {
         .catch(console.error);
 });
 
-// === 1. معالج أوامر السلاش والتفاعلات (الأزرار والنوافذ) ===
+// === معالج أوامر السلاش والتفاعلات ===
 client.on('interactionCreate', async (interaction) => {
-    // تشغيل الأوامر
+    
+    // 1. تشغيل الأوامر السابقة (بدون أي تعديل)
     if (interaction.isChatInputCommand()) {
         if (interaction.commandName === 'setup-ticket') {
             if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
                 return interaction.reply({ content: '❌ هذا الأمر مخصص للإدارة فقط.', ephemeral: true });
             }
             const embed = new EmbedBuilder()
-                .setTitle('🎫 مركز الدعم الفني')
-                .setDescription('إذا كنت تواجه مشكلة، اضغط على الزر أدناه لفتح تذكرة دعم جديدة وسيتواصل معك الفريق.')
-                .setColor('#2f3136');
+                .setTitle('🎫 مركز الدعم الفني والبطاقات')
+                .setDescription('إذا كنت تواجه مشكلة أو تحتاج إلى مساعدة من الإدارة، اضغط على الزر أدناه لفتح تذكرة جديدة.')
+                .setColor('#2f3136')
+                .setFooter({ text: 'نظام تذاكر متطور وآمن' });
+                
             const btn = new ButtonBuilder().setCustomId('open_ticket').setLabel('فتح تذكرة دعم').setStyle(ButtonStyle.Primary).setEmoji('📩');
             await interaction.reply({ content: '✅ تم إرسال نظام التكت بنجاح!', ephemeral: true });
             await interaction.channel.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(btn)] });
@@ -82,39 +84,97 @@ client.on('interactionCreate', async (interaction) => {
         }
     }
 
-    // تشغيل أزرار التكت
+    // 2. احدث نظام تكت حالياً (الأزرار والتحكم المتقدم والـ Transcript)
     if (interaction.isButton()) {
+        // فتح التكت بطلب السبب
         if (interaction.customId === 'open_ticket') {
             const modal = new ModalBuilder().setCustomId('ticket_modal').setTitle('🎫 فتح تذكرة جديدة');
-            const reason = new TextInputBuilder().setCustomId('ticket_reason').setLabel("ما سبب فتح التذكرة؟").setStyle(TextInputStyle.Paragraph).setRequired(true);
+            const reason = new TextInputBuilder().setCustomId('ticket_reason').setLabel("ما سبب فتح التذكرة؟").setStyle(TextInputStyle.Paragraph).setRequired(true).setPlaceholder('اكتب تفاصيل مشكلتك هنا لكي يساعدك الدعم بشكل أسرع...');
             modal.addComponents(new ActionRowBuilder().addComponents(reason));
             await interaction.showModal(modal);
         }
+        
+        // زر تثبيت/استلام التذكرة من قبل الإداري (Claim)
+        if (interaction.customId === 'claim_ticket') {
+            if (!interaction.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
+                return interaction.reply({ content: '❌ هذا الإجراء مخصص لفريق الدعم فقط.', ephemeral: true });
+            }
+            await interaction.reply({ content: `🔒 تم استلام التذكرة وتثبيتها بواسطة المساعد: ${interaction.user}` });
+            // تعطيل زر الـ Claim بعد الضغط عليه
+            const disabledRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('claim_ticket').setLabel('تم الاستلام').setStyle(ButtonStyle.Success).setDisabled(true).setEmoji('🙋‍♂️'),
+                new ButtonBuilder().setCustomId('close_ticket').setLabel('إغلاق التذكرة').setStyle(ButtonStyle.Danger).setEmoji('🔒')
+            );
+            await interaction.message.edit({ components: [disabledRow] });
+        }
+
+        // إغلاق التذكرة مع توليد الأرشيف تلقائياً
         if (interaction.customId === 'close_ticket') {
-            await interaction.reply('🔒 سيتم إغلاق وتصفية التذكرة خلال 5 ثوانٍ...');
-            setTimeout(async () => { await interaction.channel.delete().catch(() => {}); }, 5000);
+            await interaction.reply('🔒 يتم الآن أرشفة المحادثة وإغلاق الغرفة خلال 5 ثوانٍ...');
+            
+            // [أحدث نظام أرشفة نصوص تلقائي]
+            try {
+                const fetchedMessages = await interaction.channel.messages.fetch({ limit: 100 });
+                let transcriptText = `سجل تذكرة: ${interaction.channel.name}\nأُغلقت بواسطة: ${interaction.user.tag}\n\n`;
+                
+                fetchedMessages.reverse().forEach(msg => {
+                    transcriptText += `[${msg.createdAt.toLocaleString()}] ${msg.author.tag}: ${msg.content}\n`;
+                });
+
+                // إرسال السجل في روم اللوج برمجياً إذا تم تفعيله، أو طباعته في الكونسول للأمان
+                const data = await GuildData.findOne({ guildID: interaction.guild.id });
+                const logChannel = interaction.guild.channels.cache.get(data?.settings?.logChannelID);
+                
+                const logEmbed = new EmbedBuilder()
+                    .setTitle('📄 أرشيف تذكرة مغلقة')
+                    .setDescription(`تم إغلاق تذكرة **${interaction.channel.name}**\n**بواسطة:** ${interaction.user}`)
+                    .setColor('#ff3333')
+                    .setTimestamp();
+
+                if (logChannel) {
+                    await logChannel.send({ embeds: [logEmbed], files: [{ attachment: Buffer.from(transcriptText), name: `${interaction.channel.name}-transcript.txt` }] });
+                }
+            } catch (err) {
+                console.error('خطأ أثناء الأرشفة:', err);
+            }
+
+            setTimeout(async () => { 
+                await interaction.channel.delete().catch(() => {}); 
+            }, 5000);
         }
     }
 
-    // استقبال بيانات التكت المنبثقة
+    // معالجة بيانات النافذة المنبثقة للتكت وإرسال أزرار التحكم الحديثة لقفل واستلام التحدّث
     if (interaction.isModalSubmit() && interaction.customId === 'ticket_modal') {
         const reason = interaction.fields.getTextInputValue('ticket_reason');
         const channel = await interaction.guild.channels.create({
-            name: `ticket-${interaction.user.username}`,
+            name: `🎫-${interaction.user.username}`,
             type: ChannelType.GuildText,
             permissionOverwrites: [
                 { id: interaction.guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-                { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
+                { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+                { id: client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
             ]
         });
-        const embed = new EmbedBuilder().setTitle('🎫 تذكرة دعم جديدة').setDescription(`صاحب التذكرة: ${interaction.user}\n**السبب المعطى:** ${reason}`).setColor('#00ffcc');
-        const closeBtn = new ButtonBuilder().setCustomId('close_ticket').setLabel('إغلاق التذكرة').setStyle(ButtonStyle.Danger).setEmoji('🔒');
-        await channel.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(closeBtn)] });
+        
+        // لوحة التحكم المتقدمة داخل التكت بأزرار الاستلام والقفل
+        const embed = new EmbedBuilder()
+            .setTitle('🎫 تذكرة دعم جديدة')
+            .setDescription(`مرحباً بك ${interaction.user} في تذكرتك.\n\n**السبب المكتوب:**\n\`\`\`${reason}\`\`\`\nيرجى انتظار فريق الدعم الفني، يمكنك استخدام الأزرار أدناه للتحكم بالتذكرة.`)
+            .setColor('#00ffcc')
+            .setTimestamp();
+            
+        const controlRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('claim_ticket').setLabel('استلام التذكرة (للإدارة)').setStyle(ButtonStyle.Success).setEmoji('🙋‍♂️'),
+            new ButtonBuilder().setCustomId('close_ticket').setLabel('إغلاق التذكرة').setStyle(ButtonStyle.Danger).setEmoji('🔒')
+        );
+        
+        await channel.send({ content: `${interaction.user} | فريق الدعم`, embeds: [embed], components: [controlRow] });
         await interaction.reply({ content: `✅ تم فتح تذكرتك بنجاح في: ${channel}`, ephemeral: true });
     }
 });
 
-// === 2. نظام المستويات وحماية الروابط (Anti-Scam & Levels) ===
+// === نظام المستويات وحماية الروابط (Anti-Scam & Levels) دون تغيير ===
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild) return;
 
@@ -134,7 +194,7 @@ client.on('messageCreate', async (message) => {
     }
 
     const now = new Date();
-    if (now - userLevel.lastMessageTimestamp < 60000) return; // دقيقة انتظار
+    if (now - userLevel.lastMessageTimestamp < 60000) return;
 
     userLevel.xp += Math.floor(Math.random() * 11) + 15;
     userLevel.lastMessageTimestamp = now;
@@ -148,7 +208,6 @@ client.on('messageCreate', async (message) => {
     await data.save();
 });
 
-// معالجة الأخطاء
 process.on('unhandledRejection', error => console.error('[خطأ غير معالج]:', error));
 
 client.login(process.env.TOKEN);
