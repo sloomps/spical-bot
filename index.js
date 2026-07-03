@@ -171,7 +171,12 @@ client.on('interactionCreate', async (interaction) => {
     if (interaction.isChatInputCommand()) {
         const { commandName, options, guild, member, channel, user } = interaction;
 
-        let dbData = await GuildData.findOne({ guildID: guild.id }) || new GuildData({ guildID: guild.id });
+        // جلب البيانات أو تهيئتها لضمان عدم وجود undefined
+        let dbData = await GuildData.findOne({ guildID: guild.id });
+        if (!dbData) {
+            dbData = new GuildData({ guildID: guild.id, settings: {} });
+            await dbData.save();
+        }
         if (!dbData.settings) dbData.settings = {};
 
         const botAdminRoleID = dbData.settings.botAdminRoleID;
@@ -197,13 +202,29 @@ client.on('interactionCreate', async (interaction) => {
             return interaction.reply({ content: '❌ هذا الأمر مخصص للمشرفين (Mod Role) فما فوق.', ephemeral: true });
         }
 
-        // أمر إرسال إمبيد الزر الثابت الخاص بالاقتراحات (بدون تغيير على بقية الأوامر)
+        // أمر تثبيت الاقتراحات مع تعديل الحفظ المباشر والأكيد بقاعدة البيانات
+        if (commandName === 'تثبيت-الاقتراحات') {
+            const sugChan = options.getChannel('القناة');
+            if (sugChan.type !== ChannelType.GuildText) return interaction.reply({ content: '❌ يرجى اختيار روم نصي.', ephemeral: true });
+            
+            await GuildData.findOneAndUpdate(
+                { guildID: guild.id },
+                { $set: { 'settings.suggestionChannelID': sugChan.id } },
+                { upsert: true }
+            );
+
+            return interaction.reply({ content: `✅ تم تثبيت روم الاقتراحات بنجاح في: ${sugChan}`, ephemeral: true });
+        }
+
+        // أمر إرسال إمبيد الزر الثابت الخاص بالاقتراحات (جلب مباشر ومضمون)
         if (commandName === 'إرسال-إمبيد-الاقتراحات') {
-            const sugChannelID = dbData.settings.suggestionChannelID;
+            const freshData = await GuildData.findOne({ guildID: guild.id });
+            const sugChannelID = freshData?.settings?.suggestionChannelID;
+
             if (!sugChannelID) return interaction.reply({ content: '❌ يجب عليك تثبيت وتحديد روم الاقتراحات أولاً باستخدام أمر `/تثبيت-الاقتراحات`.', ephemeral: true });
             
             const sugChannel = guild.channels.cache.get(sugChannelID);
-            if (!sugChannel) return interaction.reply({ content: '❌ روم الاقتراحات المحدد غير موجود بالسيرفر حالياً.', ephemeral: true });
+            if (!sugChannel) return interaction.reply({ content: '❌ روم الاقتراحات المحدد غير موجود بالسيرفر حالياً أو صلاحيات البوت ناقصة.', ephemeral: true });
 
             const sugEmbed = new EmbedBuilder()
                 .setTitle('💡 صندوق اقتراحات السيرفر المطور')
@@ -220,6 +241,22 @@ client.on('interactionCreate', async (interaction) => {
 
             await sugChannel.send({ embeds: [sugEmbed], components: [sugRow] });
             return interaction.reply({ content: `✅ تم إرسال إمبيد الاقتراحات بنجاح داخل الروم: ${sugChannel}`, ephemeral: true });
+        }
+
+        if (commandName === 'اقتراح') {
+            const sugText = options.getString('الاقتراح');
+            const freshData = await GuildData.findOne({ guildID: guild.id });
+            const sugChannelID = freshData?.settings?.suggestionChannelID;
+
+            if (!sugChannelID) return interaction.reply({ content: '❌ لم يتم ضبط وتثبيت روم الاقتراحات بعد.', ephemeral: true });
+            const sugChannel = guild.channels.cache.get(sugChannelID);
+            if (!sugChannel) return interaction.reply({ content: '❌ روم الاقتراحات غير موجود أو صلاحيات البوت ناقصة لتعديله.', ephemeral: true });
+
+            await interaction.reply({ content: '✅ تم إرسال اقتراحك بنجاح!', ephemeral: true });
+            const embed = new EmbedBuilder().setTitle('💡 اقتراح جديد واعد').setDescription(`\`\`\`text\n${sugText}\n\`\`\``).addFields({ name: '👤 الصاحب:', value: `${user}` }).setColor('#f39c12').setTimestamp();
+            const msg = await sugChannel.send({ embeds: [embed] });
+            await msg.react('👍'); await msg.react('👎');
+            return;
         }
 
         if (commandName === 'تعيين-رتبة-الادارة') {
@@ -251,34 +288,13 @@ client.on('interactionCreate', async (interaction) => {
                     try { await ch.permissionOverwrites.edit(targetRole, { SendMessages: false, AddReactions: false }); } catch (err) { }
                 }
             });
-            return interaction.followUp(`⛔ تم وضع رتبة ${targetRole} في البلاك ليست بنجاح.`);
+            return interaction.followUp(`⛔ تم وضع رتبة ${targetRole} in البلاك ليست بنجاح.`);
         }
 
         if (commandName === 'قول') {
             const text = options.getString('النص');
             await interaction.reply({ content: '✅ تم الإرسال بنجاح.', ephemeral: true });
             return channel.send({ content: text });
-        }
-
-        if (commandName === 'تثبيت-الاقتراحات') {
-            const sugChan = options.getChannel('القناة');
-            if (sugChan.type !== ChannelType.GuildText) return interaction.reply({ content: '❌ يرجى اختيار روم نصي.', ephemeral: true });
-            dbData.settings.suggestionChannelID = sugChan.id; await dbData.save();
-            return interaction.reply({ content: `✅ تم تثبيت روم الاقتراحات بنجاح في: ${sugChan}`, ephemeral: true });
-        }
-
-        if (commandName === 'اقتراح') {
-            const sugText = options.getString('الاقتراح');
-            const sugChannelID = dbData.settings.suggestionChannelID;
-            if (!sugChannelID) return interaction.reply({ content: '❌ لم يتم ضبط روم الاقتراحات بعد.', ephemeral: true });
-            const sugChannel = guild.channels.cache.get(sugChannelID);
-            if (!sugChannel) return interaction.reply({ content: '❌ روم الاقتراحات غير موجود.', ephemeral: true });
-
-            await interaction.reply({ content: '✅ تم إرسال اقتراحك بنجاح!', ephemeral: true });
-            const embed = new EmbedBuilder().setTitle('💡 اقتراح جديد واعد').setDescription(`\`\`\`text\n${sugText}\n\`\`\``).addFields({ name: '👤 الصاحب:', value: `${user}` }).setColor('#f39c12').setTimestamp();
-            const msg = await sugChannel.send({ embeds: [embed] });
-            await msg.react('👍'); await msg.react('👎');
-            return;
         }
 
         if (commandName === 'تشغيل') {
@@ -354,7 +370,6 @@ client.on('interactionCreate', async (interaction) => {
             return interaction.reply({ content: isOwner ? '👑 نظام الحصانة المطلقة نشط وفعال بنسبة 100% لحسابك!' : 'ℹ️ أنت لست مالك البوت.', ephemeral: true });
         }
 
-        // 💡 دليل شامل لكافة أوامر البوت ليبقى سهل الاستخدام
         if (commandName === 'مساعدة') {
             const embed1 = new EmbedBuilder()
                 .setTitle('💡 دليل الأوامر العامة والترفيه والمستويات (الجزء 1)')
@@ -664,19 +679,19 @@ client.on('interactionCreate', async (interaction) => {
     if (interaction.isModalSubmit()) {
         if (interaction.customId === 'submit_suggestion_modal') {
             const sugText = interaction.fields.getTextInputValue('suggestion_field');
-            let dbData = await GuildData.findOne({ guildID: interaction.guild.id });
-            const sugChannelID = dbData?.settings?.suggestionChannelID;
+            let freshData = await GuildData.findOne({ guildID: interaction.guild.id });
+            const sugChannelID = freshData?.settings?.suggestionChannelID;
             
             if (!sugChannelID) return interaction.reply({ content: '❌ لم يتم العثور على روم الاقتراحات في النظام.', ephemeral: true });
             const sugChannel = interaction.guild.channels.cache.get(sugChannelID);
-            if (!sugChannel) return interaction.reply({ content: '❌ روم الاقتراحات المعتمد غير موجود أو تم حذفه.', ephemeral: true });
+            if (!sugChannel) return interaction.reply({ content: '❌ روم الاقتراحات المعتمد غير موجود أو تم حذفه وصلاحيات البوت بحاجة لفحص.', ephemeral: true });
 
             await interaction.reply({ content: '✅ تم استلام اقتراحك ونشره في روم الاقتراحات بنجاح لتصويت الأعضاء عليه!', ephemeral: true });
 
             const embed = new EmbedBuilder()
                 .setTitle('💡 اقتراح جديد فخم للسيرفر')
                 .setDescription(`\`\`\`text\n${sugText}\n\`\`\``)
-                .addFields({ name: '👤 صاحب الاقتراح البديل:', value: `${interaction.user} (\`${interaction.user.id}\`)` })
+                .addFields({ name: '👤 صاحب الاقتراح:', value: `${interaction.user} (\`${interaction.user.id}\`)` })
                 .setColor('#f1c40f')
                 .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
                 .setTimestamp();
