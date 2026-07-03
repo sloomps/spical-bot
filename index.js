@@ -354,7 +354,7 @@ client.on('interactionCreate', async (interaction) => {
             return interaction.reply({ content: isOwner ? '👑 نظام الحصانة المطلقة نشط وفعال بنسبة 100% لحسابك!' : 'ℹ️ أنت لست مالك البوت.', ephemeral: true });
         }
 
-        // 💡 تعديل أمر المساعدة ليقوم بإظهار الـ 75 أمراً مقسمة ومرتبة مع وظائفها بشكل كامل
+        // 💡 دليل شامل لكافة أوامر البوت ليبقى سهل الاستخدام
         if (commandName === 'مساعدة') {
             const embed1 = new EmbedBuilder()
                 .setTitle('💡 دليل الأوامر العامة والترفيه والمستويات (الجزء 1)')
