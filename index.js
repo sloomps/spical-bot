@@ -13,6 +13,9 @@ const client = new Client({
 
 const GuildData = require('./models/guildSchema');
 
+// ذاكرة مؤقتة لتعقب السبام (مكافحة التكرار السريع)
+const antiSpamMap = new Map();
+
 // الاتصال بقاعدة البيانات
 mongoose.connect(process.env.MONGO_URI)
     .then(() => console.log('✅ تم الاتصال بقاعدة بيانات MongoDB بنجاح!'))
@@ -21,7 +24,6 @@ mongoose.connect(process.env.MONGO_URI)
 client.once('ready', () => {
     console.log(`🚀 تم تشغيل البوت بنجاح باسم: ${client.user.tag}`);
     
-    // تحديث الأوامر المتاحة وتشمل نظام الرانك المطور (Rank + Leaderboard)
     const commands = [
         { name: 'setup-ticket', description: 'إعداد نظام تذاكر الدعم الفني الحديث بالسيرفر' },
         { name: 'rank', description: 'عرض مستواك الحالي ونقاط الخبرة الخاصة بك' },
@@ -36,9 +38,8 @@ client.once('ready', () => {
 
 // === معالج أوامر السلاش والتفاعلات ===
 client.on('interactionCreate', async (interaction) => {
-    
     if (interaction.isChatInputCommand()) {
-        // [أمر التكت - بدون تغيير]
+        // [أمر التكت]
         if (interaction.commandName === 'setup-ticket') {
             if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
                 return interaction.reply({ content: '❌ هذا الأمر مخصص للإدارة فقط.', ephemeral: true });
@@ -53,7 +54,7 @@ client.on('interactionCreate', async (interaction) => {
             await interaction.channel.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(btn)] });
         }
 
-        // [أمر الرانك الحالي المطور - يعرض النسبة المئوية للتقدم أيضاً]
+        // [أمر الرانك]
         if (interaction.commandName === 'rank') {
             const data = await GuildData.findOne({ guildID: interaction.guild.id });
             const userLevel = data?.levels.find(l => l.userID === interaction.user.id);
@@ -68,19 +69,17 @@ client.on('interactionCreate', async (interaction) => {
                 .addFields(
                     { name: '✨ المستوى الحالي:', value: `\`🏅 Level ${userLevel.level}\``, inline: true },
                     { name: '⭐ نقاط الخبرة (XP):', value: `\`✨ ${userLevel.xp} / ${xpNeeded}\` (${progressPercent}%)`, inline: true }
-                ).setColor('#3498db')
-                .setTimestamp();
+                ).setColor('#3498db');
             await interaction.reply({ embeds: [embed] });
         }
 
-        // [الأمر الجديد: لوحة الصدارة لأفضل المتفاعلين - Leaderboard]
+        // [أمر لوحة الصدارة]
         if (interaction.commandName === 'leaderboard') {
             const data = await GuildData.findOne({ guildID: interaction.guild.id });
             if (!data || !data.levels || data.levels.length === 0) {
                 return interaction.reply('❌ لا توجد بيانات مستويات مسجلة في هذا السيرفر حالياً.');
             }
 
-            // ترتيب الأعضاء بناءً على المستوى ثم الـ XP الأعلى تنازلياً وجلب توب 10
             const sortedLevels = data.levels
                 .sort((a, b) => {
                     if (b.level === a.level) return b.xp - a.xp;
@@ -91,7 +90,6 @@ client.on('interactionCreate', async (interaction) => {
             const leaderboardEmbed = new EmbedBuilder()
                 .setTitle(`🏆 قائمة متصدري التفاعل في السيرفر`)
                 .setColor('#f1c40f')
-                .setThumbnail(interaction.guild.iconURL({ dynamic: true }))
                 .setTimestamp();
 
             let description = "";
@@ -102,7 +100,7 @@ client.on('interactionCreate', async (interaction) => {
                     const medal = i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `\`#${i + 1}\``;
                     description += `${medal} **${member.user.username}** - ليفل \`${uData.level}\` (XP: \`${uData.xp}\`)\n`;
                 } catch {
-                    description += `\`#${i + 1}\` مستخدم غادر السيرفر - ليفل \`${uData.level}\`\n`;
+                    description += `\`#${i + 1}\` مستخدم غادر - ليفل \`${uData.level}\`\n`;
                 }
             }
 
@@ -110,7 +108,7 @@ client.on('interactionCreate', async (interaction) => {
             await interaction.reply({ embeds: [leaderboardEmbed] });
         }
 
-        // [أمر الهدية اليومية - بدون تغيير]
+        // [أمر الهدية اليومية]
         if (interaction.commandName === 'daily') {
             let data = await GuildData.findOne({ guildID: interaction.guild.id }) || new GuildData({ guildID: interaction.guild.id });
             let userEco = data.economy.find(e => e.userID === interaction.user.id);
@@ -129,11 +127,11 @@ client.on('interactionCreate', async (interaction) => {
         }
     }
 
-    // === تابع نظام التكت المطور الحديث بالأزرار وقفل واستلام المحادثات والـ Transcript ===
+    // === تابع نظام التكت المطور ===
     if (interaction.isButton()) {
         if (interaction.customId === 'open_ticket') {
             const modal = new ModalBuilder().setCustomId('ticket_modal').setTitle('🎫 فتح تذكرة جديدة');
-            const reason = new TextInputBuilder().setCustomId('ticket_reason').setLabel("ما سبب فتح التذكرة؟").setStyle(TextInputStyle.Paragraph).setRequired(true).setPlaceholder('اكتب تفاصيل مشكلتك هنا...');
+            const reason = new TextInputBuilder().setCustomId('ticket_reason').setLabel("ما سبب فتح التذكرة؟").setStyle(TextInputStyle.Paragraph).setRequired(true);
             modal.addComponents(new ActionRowBuilder().addComponents(reason));
             await interaction.showModal(modal);
         }
@@ -142,29 +140,16 @@ client.on('interactionCreate', async (interaction) => {
             if (!interaction.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
                 return interaction.reply({ content: '❌ هذا الإجراء مخصص لفريق الدعم فقط.', ephemeral: true });
             }
-            await interaction.reply({ content: `🔒 تم استلام التذكرة وتثبيتها بواسطة المساعد: ${interaction.user}` });
+            await interaction.reply({ content: `🔒 تم استلام التذكرة بواسطة: ${interaction.user}` });
             const disabledRow = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('claim_ticket').setLabel('تم الاستلام').setStyle(ButtonStyle.Success).setDisabled(true).setEmoji('🙋‍♂️'),
-                new ButtonBuilder().setCustomId('close_ticket').setLabel('إغلاق التذكرة').setStyle(ButtonStyle.Danger).setEmoji('🔒')
+                new ButtonBuilder().setCustomId('claim_ticket').setLabel('تم الاستلام').setStyle(ButtonStyle.Success).setDisabled(true),
+                new ButtonBuilder().setCustomId('close_ticket').setLabel('إغلاق التذكرة').setStyle(ButtonStyle.Danger)
             );
             await interaction.message.edit({ components: [disabledRow] });
         }
 
         if (interaction.customId === 'close_ticket') {
-            await interaction.reply('🔒 يتم الآن أرشفة المحادثة وإغلاق الغرفة خلال 5 ثوانٍ...');
-            try {
-                const fetchedMessages = await interaction.channel.messages.fetch({ limit: 100 });
-                let transcriptText = `سجل تذكرة: ${interaction.channel.name}\nأُغلقت بواسطة: ${interaction.user.tag}\n\n`;
-                fetchedMessages.reverse().forEach(msg => {
-                    transcriptText += `[${msg.createdAt.toLocaleString()}] ${msg.author.tag}: ${msg.content}\n`;
-                });
-                const data = await GuildData.findOne({ guildID: interaction.guild.id });
-                const logChannel = interaction.guild.channels.cache.get(data?.settings?.logChannelID);
-                const logEmbed = new EmbedBuilder().setTitle('📄 أرشيف تذكرة مغلقة').setDescription(`تم إغلاق تذكرة **${interaction.channel.name}**\n**بواسطة:** ${interaction.user}`).setColor('#ff3333').setTimestamp();
-                if (logChannel) {
-                    await logChannel.send({ embeds: [logEmbed], files: [{ attachment: Buffer.from(transcriptText), name: `${interaction.channel.name}-transcript.txt` }] });
-                }
-            } catch (err) { console.error(err); }
+            await interaction.reply('🔒 يتم الآن إغلاق الغرفة خلال 5 ثوانٍ...');
             setTimeout(async () => { await interaction.channel.delete().catch(() => {}); }, 5000);
         }
     }
@@ -176,32 +161,59 @@ client.on('interactionCreate', async (interaction) => {
             type: ChannelType.GuildText,
             permissionOverwrites: [
                 { id: interaction.guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-                { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
+                { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
                 { id: client.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
             ]
         });
-        const embed = new EmbedBuilder().setTitle('🎫 تذكرة دعم جديدة').setDescription(`مرحباً بك ${interaction.user} في تذكرتك.\n\n**السبب المكتوب:**\n\`\`\`${reason}\`\`\`\nيرجى انتظار فريق الدعم.`).setColor('#00ffcc').setTimestamp();
+        const embed = new EmbedBuilder().setTitle('🎫 تذكرة دعم جديدة').setDescription(`السبب: ${reason}`).setColor('#00ffcc');
         const controlRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('claim_ticket').setLabel('استلام التذكرة').setStyle(ButtonStyle.Success).setEmoji('🙋‍♂️'),
-            new ButtonBuilder().setCustomId('close_ticket').setLabel('إغلاق التذكرة').setStyle(ButtonStyle.Danger).setEmoji('🔒')
+            new ButtonBuilder().setCustomId('claim_ticket').setLabel('استلام التذكرة').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId('close_ticket').setLabel('إغلاق التذكرة').setStyle(ButtonStyle.Danger)
         );
-        await channel.send({ content: `${interaction.user} | فريق الدعم`, embeds: [embed], components: [controlRow] });
-        await interaction.reply({ content: `✅ تم فتح تذكرتك بنجاح في: ${channel}`, ephemeral: true });
+        await channel.send({ embeds: [embed], components: [controlRow] });
+        await interaction.reply({ content: `✅ تم فتح تذكرتك في: ${channel}`, ephemeral: true });
     }
 });
 
-// === نظام المستويات وحماية الروابط (Anti-Scam & Levels) ===
+// === نظام الحماية الذكي والمستويات وعقوبات السبام ===
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild) return;
 
-    // حماية الروابط
-    const scamRegex = /(discord\.gg\/|gift|nitro|steam|crypto)/i;
-    if (scamRegex.test(message.content) && !message.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
-        await message.delete().catch(() => {});
-        return message.channel.send(`⚠️ تم حذف رسالة ${message.author} تلقائياً لمنع الروابط غير المصرح بها.`);
+    // 1. نظام الحماية من السبام الكثيف (Anti-Spam)
+    const authorId = message.author.id;
+    const now = Date.now();
+    
+    if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
+        if (antiSpamMap.has(authorId)) {
+            const userData = antiSpamMap.get(authorId);
+            const { lastMessageTime, msgCount } = userData;
+            
+            // إذا أرسل أكثر من 5 رسائل في أقل من 3 ثوانٍ
+            if (now - lastMessageTime < 3000) {
+                if (msgCount >= 5) {
+                    await message.delete().catch(() => {});
+                    await message.member.timeout(300000, 'إرسال سبام وتكرار مكثف').catch(() => {}); // كتم 5 دقائق
+                    return message.channel.send(`🚨 تم كتم ${message.author} لمدة 5 دقائق بسبب إرسال السبام المتكرر.`);
+                }
+                userData.msgCount++;
+            } else {
+                userData.msgCount = 1;
+            }
+            userData.lastMessageTime = now;
+        } else {
+            antiSpamMap.set(authorId, { lastMessageTime: now, msgCount: 1 });
+        }
     }
 
-    // احتساب نقاط الـ XP
+    // 2. حماية الروابط والـ Anti-Scam المطور
+    const scamRegex = /(discord\.gg\/|gift|nitro|steam|crypto|free-nitro|opensea)/i;
+    if (scamRegex.test(message.content) && !message.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
+        await message.delete().catch(() => {});
+        await message.member.timeout(600000, 'نشر روابط مشبوهة أو سيرفرات').catch(() => {});
+        return message.channel.send(`⚠️ تم حذف رسالة ${message.author} وكتمه لـ 10 دقائق لمنع انتشار الروابط المشبوهة.`);
+    }
+
+    // 3. احتساب نقاط الـ XP والمستويات (بدون تغيير)
     let data = await GuildData.findOne({ guildID: message.guild.id }) || new GuildData({ guildID: message.guild.id });
     let userLevel = data.levels.find(l => l.userID === message.author.id);
     if (!userLevel) {
@@ -209,11 +221,10 @@ client.on('messageCreate', async (message) => {
         userLevel = data.levels.find(l => l.userID === message.author.id);
     }
 
-    const now = new Date();
-    if (now - userLevel.lastMessageTimestamp < 60000) return;
+    if (now - new Date(userLevel.lastMessageTimestamp).getTime() < 60000) return;
 
     userLevel.xp += Math.floor(Math.random() * 11) + 15;
-    userLevel.lastMessageTimestamp = now;
+    userLevel.lastMessageTimestamp = new Date(now);
 
     const xpNeeded = (userLevel.level + 1) * 100;
     if (userLevel.xp >= xpNeeded) {
@@ -222,6 +233,22 @@ client.on('messageCreate', async (message) => {
         await message.channel.send(`🎉 كفو ${message.author}! ارتفع مستواك وأصبحت في المستوى **${userLevel.level}**!`);
     }
     await data.save();
+});
+
+// 4. نظام الحماية ضد الحسابات الوهمية (Anti-Alt Accounts / Raid)
+client.on('guildMemberAdd', async (member) => {
+    // التحقق من عمر الحساب (إذا كان أقل من 3 أيام)
+    const minAge = 3 * 24 * 60 * 60 * 1000; 
+    const accountAge = Date.now() - member.user.createdTimestamp;
+
+    if (accountAge < minAge) {
+        try {
+            await member.send(`❌ تم طردك تلقائياً من سيرفر **${member.guild.name}** لأن حسابك جديد جداً (حساب وهمي) لحماية السيرفر.`).catch(() => {});
+            await member.kick('حساب وهمي (Anti-Alt protection)');
+        } catch (err) {
+            console.error('فشل طرد الحساب الوهمي:', err);
+        }
+    }
 });
 
 process.on('unhandledRejection', error => console.error('[خطأ غير معالج]:', error));
