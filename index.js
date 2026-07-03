@@ -1,26 +1,31 @@
-const { EmbedBuilder } = require('discord.js');
-const GuildData = require('../models/guildSchema'); // 👈 تم تعديل المسار هنا من ../../ إلى ../
+const { Client, GatewayIntentBits, Collection } = require('discord.js');
+const mongoose = require('mongoose');
+require('dotenv').config();
 
-module.exports = {
-    name: 'guildMemberAdd',
-    async execute(member) {
-        const data = await GuildData.findOne({ guildID: member.guild.id });
-        if (!data || !data.settings.welcomeChannelID) return;
+const client = new Client({
+    intents: [
+        GatewayIntentBits.Guilds,
+        GatewayIntentBits.GuildMessages,
+        GatewayIntentBits.MessageContent,
+        GatewayIntentBits.GuildMembers
+    ]
+});
 
-        const welcomeChannel = member.guild.channels.cache.get(data.settings.welcomeChannelID);
-        if (!welcomeChannel) return;
+client.commands = new Collection();
 
-        const embed = new EmbedBuilder()
-            .setTitle('✨ عضو جديد انضم إلينا!')
-            .setDescription(`أهلاً بك ${member} في سيرفر **${member.guild.name}**!\nنتمنى لك وقتاً ممتعاً معنا.`)
-            .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
-            .setColor('#00ffaa')
-            .addFields(
-                { name: 'حسابك أُنشئ في:', value: `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`, inline: true },
-                { name: 'ترتيبك في السيرفر:', value: `${member.guild.memberCount}`, inline: true }
-            )
-            .setTimestamp();
+// الاتصال بقاعدة البيانات
+mongoose.connect(process.env.MONGO_URI)
+    .then(() => console.log('✅ تم الاتصال بقاعدة البيانات بنجاح!'))
+    .catch((err) => console.error('❌ فشل الاتصال بقاعدة البيانات:', err));
 
-        await welcomeChannel.send({ content: `مرحباً بك ${member}`, embeds: [embed] }).catch(() => {});
-    }
-};
+// تشغيل الـ Handlers
+['commands', 'events'].forEach(handler => {
+    require(`./handlers/${handler}`)(client);
+});
+
+// منع انهيار البوت عند حدوث خطأ غير متوقع
+process.on('unhandledRejection', error => {
+    console.error('[خطأ غير معالج]:', error);
+});
+
+client.login(process.env.TOKEN);
