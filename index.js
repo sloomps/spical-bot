@@ -17,7 +17,7 @@ const client = new Client({
 const GuildData = require('./models/guildSchema');
 
 // 👑 ضع هنا الـ ID الخاص بحسابك الشخصي لتكون المالك المطلق للبوت وتحصل على الحصانة الكاملة
-const BOT_OWNER_ID = 'YOUR_DISCORD_USER_ID_HERE'; 
+const BOT_OWNER_ID = '1507841424186675220'; 
 
 const antiSpamMap = new Map();
 const invitesCache = new Map();
