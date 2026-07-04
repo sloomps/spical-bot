@@ -1,7 +1,7 @@
 {
-  "name": "ultimate-bot-arabic",
-  "version": "5.0.0",
-  "description": "البوت العربي الخارق - النسخة النهائية المتكاملة",
+  "name": "ultimate-bot-final",
+  "version": "6.0.0",
+  "description": "Ultimate Discord Bot - Final Complete Version",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
