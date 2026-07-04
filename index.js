@@ -1,6 +1,6 @@
 // ================================================================
-// DISCORD BOT ULTIMATE - النسخة العالمية
-// جميع الأوامر شرطية (/) - أنظمة متكاملة - أداء فائق
+// البوت العربي الخارق - النسخة النهائية
+// جميع الأوامر بالعربية - أنظمة متطورة - أداء عالمي
 // ================================================================
 
 const { Client, GatewayIntentBits, Partials, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField, ChannelType, SlashCommandBuilder, REST, Routes, Collection, Events } = require('discord.js');
@@ -9,150 +9,165 @@ const axios = require('axios');
 const moment = require('moment');
 
 // ================== قاعدة البيانات ==================
-const db = new Database('./ultimate_bot.db');
+const db = new Database('./bot_arabic.db');
 
-// إنشاء جميع الجداول المطلوبة
 db.exec(`
-    -- الاقتصاد
-    CREATE TABLE IF NOT EXISTS economy (user_id TEXT, guild_id TEXT, balance INTEGER DEFAULT 0, bank INTEGER DEFAULT 0, daily TEXT, work TEXT, weekly TEXT);
-    -- المستويات
-    CREATE TABLE IF NOT EXISTS levels (user_id TEXT, guild_id TEXT, xp INTEGER DEFAULT 0, level INTEGER DEFAULT 1);
+    -- الاقتصاد المتطور
+    CREATE TABLE IF NOT EXISTS الاقتصاد (المستخدم TEXT, السيرفر TEXT, الرصيد INTEGER DEFAULT 0, البنك INTEGER DEFAULT 0, اليومي TEXT, العمل TEXT, الاسبوعي TEXT, المستوى INTEGER DEFAULT 1, الخبرة INTEGER DEFAULT 0);
+    
     -- التحذيرات
-    CREATE TABLE IF NOT EXISTS warnings (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, guild_id TEXT, reason TEXT, date TEXT, moderator TEXT);
+    CREATE TABLE IF NOT EXISTS التحذيرات (id INTEGER PRIMARY KEY AUTOINCREMENT, المستخدم TEXT, السيرفر TEXT, السبب TEXT, التاريخ TEXT, المشرف TEXT);
+    
     -- الأدوار التلقائية
-    CREATE TABLE IF NOT EXISTS autoroles (guild_id TEXT, role_id TEXT);
+    CREATE TABLE IF NOT EXISTS الادوار_التلقائية (السيرفر TEXT, الدور TEXT);
+    
     -- الترحيب والوداع
-    CREATE TABLE IF NOT EXISTS welcome (guild_id TEXT, channel_id TEXT, message TEXT, image_url TEXT);
-    CREATE TABLE IF NOT EXISTS goodbye (guild_id TEXT, channel_id TEXT, message TEXT, image_url TEXT);
-    -- التذاكر
-    CREATE TABLE IF NOT EXISTS tickets (id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT, channel_id TEXT, user_id TEXT, topic TEXT, status TEXT, created_at TEXT, category TEXT, priority TEXT);
+    CREATE TABLE IF NOT EXISTS الترحيب (السيرفر TEXT, القناة TEXT, الرسالة TEXT, الصورة TEXT);
+    CREATE TABLE IF NOT EXISTS الوداع (السيرفر TEXT, القناة TEXT, الرسالة TEXT, الصورة TEXT);
+    
+    -- التذاكر المتطورة
+    CREATE TABLE IF NOT EXISTS التذاكر (id INTEGER PRIMARY KEY AUTOINCREMENT, السيرفر TEXT, القناة TEXT, المستخدم TEXT, الموضوع TEXT, الحالة TEXT, التاريخ TEXT, القسم TEXT, الاولوية TEXT);
+    CREATE TABLE IF NOT EXISTS اعدادات_التذاكر (السيرفر TEXT, الفئة TEXT, دور_الدعم TEXT, قناة_السجلات TEXT);
+    
     -- السجلات
-    CREATE TABLE IF NOT EXISTS logging (guild_id TEXT, channel_id TEXT, type TEXT);
+    CREATE TABLE IF NOT EXISTS السجلات (السيرفر TEXT, القناة TEXT, النوع TEXT);
+    
     -- الأدوار التفاعلية
-    CREATE TABLE IF NOT EXISTS reaction_roles (id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT, message_id TEXT, role_id TEXT, emoji TEXT);
+    CREATE TABLE IF NOT EXISTS الادوار_التفاعلية (id INTEGER PRIMARY KEY AUTOINCREMENT, السيرفر TEXT, الرسالة TEXT, الدور TEXT, الايموجي TEXT);
+    
     -- إحصائيات الأعضاء
-    CREATE TABLE IF NOT EXISTS member_stats (user_id TEXT, guild_id TEXT, messages INTEGER DEFAULT 0, voice_minutes INTEGER DEFAULT 0, reactions_given INTEGER DEFAULT 0, reactions_received INTEGER DEFAULT 0, xp_earned INTEGER DEFAULT 0);
-    -- الحماية
-    CREATE TABLE IF NOT EXISTS auto_mod (guild_id TEXT, spam_threshold INTEGER DEFAULT 5, invite_filter INTEGER DEFAULT 1, link_filter INTEGER DEFAULT 1);
-    CREATE TABLE IF NOT EXISTS mute_roles (guild_id TEXT, role_id TEXT);
-    CREATE TABLE IF NOT EXISTS verify_roles (guild_id TEXT, role_id TEXT, channel_id TEXT);
+    CREATE TABLE IF NOT EXISTS الاحصائيات (المستخدم TEXT, السيرفر TEXT, الرسائل INTEGER DEFAULT 0, الصوت INTEGER DEFAULT 0, التفاعلات INTEGER DEFAULT 0, الخبرة INTEGER DEFAULT 0);
+    
+    -- الحماية المتقدمة
+    CREATE TABLE IF NOT EXISTS الحماية (السيرفر TEXT, حد_السبام INTEGER DEFAULT 5, حماية_الروابط INTEGER DEFAULT 1, حماية_الدعوات INTEGER DEFAULT 1, مستوى_التحقق INTEGER DEFAULT 1);
+    CREATE TABLE IF NOT EXISTS ادوار_الكتم (السيرفر TEXT, الدور TEXT);
+    CREATE TABLE IF NOT EXISTS ادوار_التحقق (السيرفر TEXT, الدور TEXT, القناة TEXT);
+    
     -- التذكيرات
-    CREATE TABLE IF NOT EXISTS reminders (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, channel_id TEXT, message TEXT, remind_time TEXT, repeat_interval INTEGER DEFAULT 0);
+    CREATE TABLE IF NOT EXISTS التذكيرات (id INTEGER PRIMARY KEY AUTOINCREMENT, المستخدم TEXT, القناة TEXT, الرسالة TEXT, الوقت TEXT, التكرار INTEGER DEFAULT 0);
+    
     -- العشائر
-    CREATE TABLE IF NOT EXISTS clans (id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT, name TEXT, owner TEXT, members TEXT, level INTEGER DEFAULT 1, xp INTEGER DEFAULT 0, created_at TEXT);
+    CREATE TABLE IF NOT EXISTS العشائر (id INTEGER PRIMARY KEY AUTOINCREMENT, السيرفر TEXT, الاسم TEXT, المالك TEXT, الاعضاء TEXT, المستوى INTEGER DEFAULT 1, الخبرة INTEGER DEFAULT 0);
+    
     -- المزارع
-    CREATE TABLE IF NOT EXISTS farms (user_id TEXT, guild_id TEXT, crop TEXT, planted_at TEXT, ready_at TEXT, status TEXT DEFAULT 'growing');
+    CREATE TABLE IF NOT EXISTS المزارع (المستخدم TEXT, السيرفر TEXT, المحصول TEXT, وقت_الزرع TEXT, وقت_الحصاد TEXT, الحالة TEXT DEFAULT 'نمو');
+    
     -- المزادات
-    CREATE TABLE IF NOT EXISTS auctions (id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT, item TEXT, seller TEXT, starting_bid INTEGER, current_bid INTEGER, bidder TEXT, end_time TEXT, status TEXT DEFAULT 'active');
+    CREATE TABLE IF NOT EXISTS المزادات (id INTEGER PRIMARY KEY AUTOINCREMENT, السيرفر TEXT, العنصر TEXT, البائع TEXT, السعر_البدئي INTEGER, السعر_الحالي INTEGER, المزايد TEXT, وقت_الانتهاء TEXT, الحالة TEXT DEFAULT 'نشط');
+    
     -- الألقاب
-    CREATE TABLE IF NOT EXISTS titles (user_id TEXT, guild_id TEXT, title TEXT, PRIMARY KEY (user_id, guild_id));
+    CREATE TABLE IF NOT EXISTS الالقاب (المستخدم TEXT, السيرفر TEXT, اللقب TEXT, PRIMARY KEY (المستخدم, السيرفر));
+    
     -- الردود التلقائية
-    CREATE TABLE IF NOT EXISTS auto_responders (guild_id TEXT, trigger TEXT, response TEXT, PRIMARY KEY (guild_id, trigger));
+    CREATE TABLE IF NOT EXISTS الردود_التلقائية (السيرفر TEXT, الكلمة TEXT, الرد TEXT, PRIMARY KEY (السيرفر, الكلمة));
+    
     -- الأحداث
-    CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT, name TEXT, description TEXT, date TEXT, channel_id TEXT, created_by TEXT);
+    CREATE TABLE IF NOT EXISTS الاحداث (id INTEGER PRIMARY KEY AUTOINCREMENT, السيرفر TEXT, الاسم TEXT, الوصف TEXT, التاريخ TEXT, القناة TEXT, المنشئ TEXT);
+    
     -- الأوامر المخصصة
-    CREATE TABLE IF NOT EXISTS custom_commands (guild_id TEXT, name TEXT, response TEXT, PRIMARY KEY (guild_id, name));
+    CREATE TABLE IF NOT EXISTS الاوامر_المخصصة (السيرفر TEXT, الاسم TEXT, الرد TEXT, PRIMARY KEY (السيرفر, الاسم));
+    
     -- الاستطلاعات
-    CREATE TABLE IF NOT EXISTS polls (id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT, channel_id TEXT, message_id TEXT, question TEXT, options TEXT);
+    CREATE TABLE IF NOT EXISTS الاستطلاعات (id INTEGER PRIMARY KEY AUTOINCREMENT, السيرفر TEXT, القناة TEXT, الرسالة TEXT, السؤال TEXT, الخيارات TEXT);
+    
     -- الهدايا
-    CREATE TABLE IF NOT EXISTS giveaways (id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT, channel_id TEXT, message_id TEXT, prize TEXT, end_time TEXT, winners INTEGER, entries TEXT);
+    CREATE TABLE IF NOT EXISTS الهدايا (id INTEGER PRIMARY KEY AUTOINCREMENT, السيرفر TEXT, القناة TEXT, الرسالة TEXT, الجائزة TEXT, وقت_الانتهاء TEXT, الفائزون INTEGER, المشاركون TEXT);
+    
     -- الإنجازات
-    CREATE TABLE IF NOT EXISTS achievements (user_id TEXT, guild_id TEXT, achievement_name TEXT, unlocked_at TEXT, PRIMARY KEY (user_id, guild_id, achievement_name));
+    CREATE TABLE IF NOT EXISTS الانجازات (المستخدم TEXT, السيرفر TEXT, الاسم TEXT, التاريخ TEXT, PRIMARY KEY (المستخدم, السيرفر, الاسم));
+    
     -- الأدوار المؤقتة
-    CREATE TABLE IF NOT EXISTS temp_roles (user_id TEXT, guild_id TEXT, role_id TEXT, expiry_time TEXT);
+    CREATE TABLE IF NOT EXISTS الادوار_المؤقتة (المستخدم TEXT, السيرفر TEXT, الدور TEXT, وقت_الانتهاء TEXT);
+    
     -- القروض
-    CREATE TABLE IF NOT EXISTS loans (user_id TEXT, guild_id TEXT, amount INTEGER, interest INTEGER, due_date TEXT, status TEXT DEFAULT 'active');
+    CREATE TABLE IF NOT EXISTS القروض (المستخدم TEXT, السيرفر TEXT, المبلغ INTEGER, الفائدة INTEGER, تاريخ_الاستحقاق TEXT, الحالة TEXT DEFAULT 'نشط');
+    
     -- الاستثمارات
-    CREATE TABLE IF NOT EXISTS investments (user_id TEXT, guild_id TEXT, amount INTEGER, profit INTEGER, start_date TEXT, end_date TEXT, status TEXT DEFAULT 'active');
-    -- التذاكر المتقدمة
-    CREATE TABLE IF NOT EXISTS ticket_settings (guild_id TEXT, category_id TEXT, support_role_id TEXT, log_channel_id TEXT);
+    CREATE TABLE IF NOT EXISTS الاستثمارات (المستخدم TEXT, السيرفر TEXT, المبلغ INTEGER, الربح INTEGER, تاريخ_البدء TEXT, تاريخ_الانتهاء TEXT, الحالة TEXT DEFAULT 'نشط');
+    
+    -- الاشتراكات المدفوعة
+    CREATE TABLE IF NOT EXISTS الاشتراكات (المستخدم TEXT, السيرفر TEXT, المستوى TEXT, تاريخ_البدء TEXT, تاريخ_الانتهاء TEXT, الحالة TEXT DEFAULT 'نشط');
+    
+    -- متجر الأدوار
+    CREATE TABLE IF NOT EXISTS متجر_الادوار (id INTEGER PRIMARY KEY AUTOINCREMENT, السيرفر TEXT, الدور TEXT, السعر INTEGER, الوصف TEXT);
 `);
 
-// ================== دوال مساعدة محسّنة ==================
-function getBalance(userId, guildId) {
-    const row = db.prepare("SELECT balance FROM economy WHERE user_id = ? AND guild_id = ?").get(userId, guildId);
-    return row ? row.balance : 0;
+// ================== دوال مساعدة متطورة ==================
+function جلب_الرصيد(المستخدم, السيرفر) {
+    const row = db.prepare("SELECT الرصيد FROM الاقتصاد WHERE المستخدم = ? AND السيرفر = ?").get(المستخدم, السيرفر);
+    return row ? row.الرصيد : 0;
 }
 
-function updateBalance(userId, guildId, amount) {
-    const existing = db.prepare("SELECT balance FROM economy WHERE user_id = ? AND guild_id = ?").get(userId, guildId);
-    if (existing) {
-        db.prepare("UPDATE economy SET balance = balance + ? WHERE user_id = ? AND guild_id = ?").run(amount, userId, guildId);
+function تحديث_الرصيد(المستخدم, السيرفر, المبلغ) {
+    const موجود = db.prepare("SELECT الرصيد FROM الاقتصاد WHERE المستخدم = ? AND السيرفر = ?").get(المستخدم, السيرفر);
+    if (موجود) {
+        db.prepare("UPDATE الاقتصاد SET الرصيد = الرصيد + ? WHERE المستخدم = ? AND السيرفر = ?").run(المبلغ, المستخدم, السيرفر);
     } else {
-        db.prepare("INSERT INTO economy (user_id, guild_id, balance) VALUES (?, ?, ?)").run(userId, guildId, amount);
+        db.prepare("INSERT INTO الاقتصاد (المستخدم, السيرفر, الرصيد) VALUES (?, ?, ?)").run(المستخدم, السيرفر, المبلغ);
     }
 }
 
-function getXp(userId, guildId) {
-    const row = db.prepare("SELECT xp, level FROM levels WHERE user_id = ? AND guild_id = ?").get(userId, guildId);
+function جلب_المستوى(المستخدم, السيرفر) {
+    const row = db.prepare("SELECT المستوى, الخبرة FROM الاقتصاد WHERE المستخدم = ? AND السيرفر = ?").get(المستخدم, السيرفر);
     if (!row) {
-        db.prepare("INSERT INTO levels (user_id, guild_id, xp, level) VALUES (?, ?, 0, 1)").run(userId, guildId);
-        return { xp: 0, level: 1 };
+        db.prepare("INSERT INTO الاقتصاد (المستخدم, السيرفر, المستوى, الخبرة) VALUES (?, ?, 1, 0)").run(المستخدم, السيرفر);
+        return { المستوى: 1, الخبرة: 0 };
     }
-    return { xp: row.xp, level: row.level };
+    return { المستوى: row.المستوى, الخبرة: row.الخبرة };
 }
 
-function addXp(userId, guildId, amount) {
-    const existing = db.prepare("SELECT xp, level FROM levels WHERE user_id = ? AND guild_id = ?").get(userId, guildId);
-    if (!existing) {
-        db.prepare("INSERT INTO levels (user_id, guild_id, xp, level) VALUES (?, ?, ?, 1)").run(userId, guildId, amount);
+function اضافة_خبرة(المستخدم, السيرفر, الكمية) {
+    const موجود = db.prepare("SELECT المستوى, الخبرة FROM الاقتصاد WHERE المستخدم = ? AND السيرفر = ?").get(المستخدم, السيرفر);
+    if (!موجود) {
+        db.prepare("INSERT INTO الاقتصاد (المستخدم, السيرفر, المستوى, الخبرة) VALUES (?, ?, 1, ?)").run(المستخدم, السيرفر, الكمية);
         return;
     }
-    let xp = existing.xp + amount;
-    let level = existing.level;
-    let needed = 5 * (level * level) + 50 * level + 100;
-    while (xp >= needed) {
-        xp -= needed;
-        level++;
-        needed = 5 * (level * level) + 50 * level + 100;
-        // منح دور المستوى
-        const roles = db.prepare("SELECT role_id FROM level_roles WHERE guild_id = ? AND level = ?").all(guildId, level);
-        const guild = client.guilds.cache.get(guildId);
-        if (guild) {
-            const member = guild.members.cache.get(userId);
-            if (member) {
-                roles.forEach(r => member.roles.add(r.role_id).catch(() => {}));
-            }
-        }
+    let خبرة = موجود.الخبرة + الكمية;
+    let مستوى = موجود.المستوى;
+    let مطلوب = 5 * (مستوى * مستوى) + 50 * مستوى + 100;
+    while (خبرة >= مطلوب) {
+        خبرة -= مطلوب;
+        مستوى++;
+        مطلوب = 5 * (مستوى * مستوى) + 50 * مستوى + 100;
     }
-    db.prepare("UPDATE levels SET xp = ?, level = ? WHERE user_id = ? AND guild_id = ?").run(xp, level, userId, guildId);
+    db.prepare("UPDATE الاقتصاد SET المستوى = ?, الخبرة = ? WHERE المستخدم = ? AND السيرفر = ?").run(مستوى, خبرة, المستخدم, السيرفر);
 }
 
-function getWarnings(userId, guildId) {
-    return db.prepare("SELECT reason, date, moderator FROM warnings WHERE user_id = ? AND guild_id = ? ORDER BY date DESC").all(userId, guildId);
+function جلب_التحذيرات(المستخدم, السيرفر) {
+    return db.prepare("SELECT السبب, التاريخ, المشرف FROM التحذيرات WHERE المستخدم = ? AND السيرفر = ? ORDER BY التاريخ DESC").all(المستخدم, السيرفر);
 }
 
-function addWarning(userId, guildId, reason, moderator) {
-    db.prepare("INSERT INTO warnings (user_id, guild_id, reason, date, moderator) VALUES (?, ?, ?, datetime('now'), ?)").run(userId, guildId, reason, moderator);
-    const count = db.prepare("SELECT COUNT(*) FROM warnings WHERE user_id = ? AND guild_id = ?").get(userId, guildId);
+function اضافة_تحذير(المستخدم, السيرفر, السبب, المشرف) {
+    db.prepare("INSERT INTO التحذيرات (المستخدم, السيرفر, السبب, التاريخ, المشرف) VALUES (?, ?, ?, datetime('now'), ?)").run(المستخدم, السيرفر, السبب, المشرف);
+    const count = db.prepare("SELECT COUNT(*) FROM التحذيرات WHERE المستخدم = ? AND السيرفر = ?").get(المستخدم, السيرفر);
     return count['COUNT(*)'];
 }
 
-function clearWarnings(userId, guildId) {
-    db.prepare("DELETE FROM warnings WHERE user_id = ? AND guild_id = ?").run(userId, guildId);
+function مسح_التحذيرات(المستخدم, السيرفر) {
+    db.prepare("DELETE FROM التحذيرات WHERE المستخدم = ? AND السيرفر = ?").run(المستخدم, السيرفر);
 }
 
-function logEvent(guildId, type, description, color = 0x2F3136) {
-    const row = db.prepare("SELECT channel_id FROM logging WHERE guild_id = ? AND (type = ? OR type = 'all')").get(guildId, type);
+function تسجيل_حدث(السيرفر, النوع, الوصف, اللون = 0x2F3136) {
+    const row = db.prepare("SELECT القناة FROM السجلات WHERE السيرفر = ? AND (النوع = ? OR النوع = 'الكل')").get(السيرفر, النوع);
     if (!row) return;
-    const channel = client.channels.cache.get(row.channel_id);
-    if (channel) {
-        const embed = new EmbedBuilder().setTitle(`📋 ${type}`).setDescription(description).setColor(color).setTimestamp();
-        channel.send({ embeds: [embed] }).catch(() => {});
+    const القناة = client.channels.cache.get(row.القناة);
+    if (القناة) {
+        const ايمبد = new EmbedBuilder().setTitle(`📋 ${النوع}`).setDescription(الوصف).setColor(اللون).setTimestamp();
+        القناة.send({ embeds: [ايمبد] }).catch(() => {});
     }
 }
 
-function getUserStats(userId, guildId) {
-    let row = db.prepare("SELECT * FROM member_stats WHERE user_id = ? AND guild_id = ?").get(userId, guildId);
+function جلب_احصائيات(المستخدم, السيرفر) {
+    let row = db.prepare("SELECT * FROM الاحصائيات WHERE المستخدم = ? AND السيرفر = ?").get(المستخدم, السيرفر);
     if (!row) {
-        db.prepare("INSERT INTO member_stats (user_id, guild_id, messages, voice_minutes, reactions_given, reactions_received, xp_earned) VALUES (?, ?, 0, 0, 0, 0, 0)").run(userId, guildId);
-        row = db.prepare("SELECT * FROM member_stats WHERE user_id = ? AND guild_id = ?").get(userId, guildId);
+        db.prepare("INSERT INTO الاحصائيات (المستخدم, السيرفر, الرسائل, الصوت, التفاعلات, الخبرة) VALUES (?, ?, 0, 0, 0, 0)").run(المستخدم, السيرفر);
+        row = db.prepare("SELECT * FROM الاحصائيات WHERE المستخدم = ? AND السيرفر = ?").get(المستخدم, السيرفر);
     }
     return row;
 }
 
-function updateStat(userId, guildId, field, increment = 1) {
-    db.prepare(`UPDATE member_stats SET ${field} = ${field} + ? WHERE user_id = ? AND guild_id = ?`).run(increment, userId, guildId);
+function تحديث_احصائية(المستخدم, السيرفر, الحقل, الزيادة = 1) {
+    db.prepare(`UPDATE الاحصائيات SET ${الحقل} = ${الحقل} + ? WHERE المستخدم = ? AND السيرفر = ?`).run(الزيادة, المستخدم, السيرفر);
 }
 
 // ================== إعدادات العميل ==================
@@ -173,890 +188,1258 @@ const client = new Client({
 
 const TOKEN = process.env.TOKEN;
 if (!TOKEN) {
-    console.error('❌ TOKEN environment variable not set.');
+    console.error('❌ لم يتم تعيين توكن البوت في متغير البيئة TOKEN');
     process.exit(1);
 }
 
 // ================== أوامر البوت ==================
-const commands = [];
+const الاوامر = [];
 
 // ---- أمر المساعدة ----
-commands.push(new SlashCommandBuilder()
-    .setName('help')
-    .setNameLocalizations({ ar: 'مساعدة' })
-    .setDescription('Show all available commands with details')
-    .setDescriptionLocalizations({ ar: 'عرض جميع الأوامر المتاحة مع الشرح' })
-    .addStringOption(option => option.setName('command').setNameLocalizations({ ar: 'الأمر' }).setDescription('Command name for details').setDescriptionLocalizations({ ar: 'اسم الأمر للشرح المفصل' }).setRequired(false))
+الاوامر.push(new SlashCommandBuilder()
+    .setName('مساعدة')
+    .setDescription('عرض جميع الأوامر المتاحة مع شرح مفصل')
+    .addStringOption(option => option.setName('الأمر').setDescription('اسم الأمر للحصول على شرح تفصيلي').setRequired(false))
 );
 
 // ---- أمر المعلومات ----
-commands.push(new SlashCommandBuilder()
-    .setName('info')
-    .setNameLocalizations({ ar: 'معلومات' })
-    .setDescription('Show bot, server, or user information')
-    .setDescriptionLocalizations({ ar: 'عرض معلومات البوت أو السيرفر أو العضو' })
-    .addStringOption(option => option.setName('type').setNameLocalizations({ ar: 'النوع' }).setDescription('Information type').setDescriptionLocalizations({ ar: 'نوع المعلومات' }).setRequired(true).addChoices(
-        { name: 'Bot', value: 'bot' },
-        { name: 'Server', value: 'server' },
-        { name: 'User', value: 'user' }
+الاوامر.push(new SlashCommandBuilder()
+    .setName('معلومات')
+    .setDescription('عرض معلومات البوت أو السيرفر أو العضو')
+    .addStringOption(option => option.setName('النوع').setDescription('نوع المعلومات').setRequired(true).addChoices(
+        { name: 'البوت', value: 'بوت' },
+        { name: 'السيرفر', value: 'سيرفر' },
+        { name: 'عضو', value: 'عضو' }
     ))
-    .addUserOption(option => option.setName('user').setNameLocalizations({ ar: 'العضو' }).setDescription('User to get info about').setDescriptionLocalizations({ ar: 'العضو المطلوب معلوماته' }).setRequired(false))
+    .addUserOption(option => option.setName('العضو').setDescription('العضو المطلوب معلوماته').setRequired(false))
 );
 
 // ---- أمر الاقتصاد ----
-commands.push(new SlashCommandBuilder()
-    .setName('economy')
-    .setNameLocalizations({ ar: 'اقتصاد' })
-    .setDescription('Manage your economy')
-    .setDescriptionLocalizations({ ar: 'إدارة اقتصادك' })
-    .addSubcommand(sub => sub.setName('balance').setNameLocalizations({ ar: 'رصيد' }).setDescription('Check your balance').setDescriptionLocalizations({ ar: 'عرض رصيدك' }).addUserOption(opt => opt.setName('user').setNameLocalizations({ ar: 'عضو' }).setDescription('User to check').setDescriptionLocalizations({ ar: 'عضو للتحقق من رصيده' }).setRequired(false)))
-    .addSubcommand(sub => sub.setName('daily').setNameLocalizations({ ar: 'يومي' }).setDescription('Claim daily reward').setDescriptionLocalizations({ ar: 'الحصول على المكافأة اليومية' }))
-    .addSubcommand(sub => sub.setName('work').setNameLocalizations({ ar: 'عمل' }).setDescription('Work to earn coins').setDescriptionLocalizations({ ar: 'العمل لكسب عملات' }))
-    .addSubcommand(sub => sub.setName('rob').setNameLocalizations({ ar: 'سرقة' }).setDescription('Try to rob a user').setDescriptionLocalizations({ ar: 'محاولة سرقة عضو' }).addUserOption(opt => opt.setName('user').setNameLocalizations({ ar: 'عضو' }).setDescription('User to rob').setDescriptionLocalizations({ ar: 'العضو المراد سرقته' }).setRequired(true)))
-    .addSubcommand(sub => sub.setName('slot').setNameLocalizations({ ar: 'حظ' }).setDescription('Play slot machine').setDescriptionLocalizations({ ar: 'لعب ماكينة الحظ' }).addIntegerOption(opt => opt.setName('bet').setNameLocalizations({ ar: 'رهان' }).setDescription('Bet amount').setDescriptionLocalizations({ ar: 'مبلغ الرهان' }).setRequired(false)))
-    .addSubcommand(sub => sub.setName('shop').setNameLocalizations({ ar: 'متجر' }).setDescription('View the shop').setDescriptionLocalizations({ ar: 'عرض المتجر' }))
-    .addSubcommand(sub => sub.setName('buy').setNameLocalizations({ ar: 'شراء' }).setDescription('Buy an item').setDescriptionLocalizations({ ar: 'شراء عنصر' }).addStringOption(opt => opt.setName('item').setNameLocalizations({ ar: 'العنصر' }).setDescription('Item to buy').setDescriptionLocalizations({ ar: 'العنصر المراد شراؤه' }).setRequired(true).addChoices(
-        { name: 'Gift', value: 'gift' },
-        { name: 'Star', value: 'star' },
-        { name: 'Crown', value: 'crown' }
+الاوامر.push(new SlashCommandBuilder()
+    .setName('اقتصاد')
+    .setDescription('إدارة رصيدك وعملاتك')
+    .addSubcommand(sub => sub.setName('رصيد').setDescription('عرض رصيدك').addUserOption(opt => opt.setName('عضو').setDescription('عرض رصيد عضو آخر').setRequired(false)))
+    .addSubcommand(sub => sub.setName('يومي').setDescription('الحصول على المكافأة اليومية'))
+    .addSubcommand(sub => sub.setName('عمل').setDescription('العمل لكسب عملات إضافية'))
+    .addSubcommand(sub => sub.setName('سرقة').setDescription('محاولة سرقة عملات من عضو آخر').addUserOption(opt => opt.setName('عضو').setDescription('العضو المراد سرقته').setRequired(true)))
+    .addSubcommand(sub => sub.setName('حظ').setDescription('لعب ماكينة الحظ').addIntegerOption(opt => opt.setName('رهان').setDescription('مبلغ الرهان').setRequired(false)))
+    .addSubcommand(sub => sub.setName('متجر').setDescription('عرض المتجر'))
+    .addSubcommand(sub => sub.setName('شراء').setDescription('شراء عنصر من المتجر').addStringOption(opt => opt.setName('العنصر').setDescription('العنصر المراد شراؤه').setRequired(true).addChoices(
+        { name: 'هدية', value: 'هدية' },
+        { name: 'نجمة', value: 'نجمة' },
+        { name: 'تاج', value: 'تاج' }
     )))
 );
 
 // ---- أمر المستويات ----
-commands.push(new SlashCommandBuilder()
-    .setName('level')
-    .setNameLocalizations({ ar: 'مستوى' })
-    .setDescription('Check your level or leaderboard')
-    .setDescriptionLocalizations({ ar: 'عرض مستواك أو الترتيب' })
-    .addSubcommand(sub => sub.setName('rank').setNameLocalizations({ ar: 'رتبتي' }).setDescription('Check your rank').setDescriptionLocalizations({ ar: 'عرض رتبتك' }).addUserOption(opt => opt.setName('user').setNameLocalizations({ ar: 'عضو' }).setDescription('User to check').setDescriptionLocalizations({ ar: 'عضو للتحقق' }).setRequired(false)))
-    .addSubcommand(sub => sub.setName('leaderboard').setNameLocalizations({ ar: 'المتصدرين' }).setDescription('Show top 10 users').setDescriptionLocalizations({ ar: 'عرض أفضل 10 أعضاء' }))
+الاوامر.push(new SlashCommandBuilder()
+    .setName('مستوى')
+    .setDescription('عرض مستواك أو ترتيب المتصدرين')
+    .addSubcommand(sub => sub.setName('رتبتي').setDescription('عرض مستواك').addUserOption(opt => opt.setName('عضو').setDescription('عضو آخر').setRequired(false)))
+    .addSubcommand(sub => sub.setName('المتصدرين').setDescription('عرض لوحة المتصدرين'))
 );
 
 // ---- أمر الإدارة ----
-commands.push(new SlashCommandBuilder()
-    .setName('moderation')
-    .setNameLocalizations({ ar: 'إدارة' })
-    .setDescription('Server moderation commands')
-    .setDescriptionLocalizations({ ar: 'أوامر إدارة السيرفر' })
-    .addSubcommand(sub => sub.setName('kick').setNameLocalizations({ ar: 'طرد' }).setDescription('Kick a member').setDescriptionLocalizations({ ar: 'طرد عضو' }).addUserOption(opt => opt.setName('user').setNameLocalizations({ ar: 'عضو' }).setDescription('Member to kick').setDescriptionLocalizations({ ar: 'العضو المراد طرده' }).setRequired(true)).addStringOption(opt => opt.setName('reason').setNameLocalizations({ ar: 'سبب' }).setDescription('Reason for kick').setDescriptionLocalizations({ ar: 'سبب الطرد' }).setRequired(false)))
-    .addSubcommand(sub => sub.setName('ban').setNameLocalizations({ ar: 'حظر' }).setDescription('Ban a member').setDescriptionLocalizations({ ar: 'حظر عضو' }).addUserOption(opt => opt.setName('user').setNameLocalizations({ ar: 'عضو' }).setDescription('Member to ban').setDescriptionLocalizations({ ar: 'العضو المراد حظره' }).setRequired(true)).addStringOption(opt => opt.setName('reason').setNameLocalizations({ ar: 'سبب' }).setDescription('Reason for ban').setDescriptionLocalizations({ ar: 'سبب الحظر' }).setRequired(false)))
-    .addSubcommand(sub => sub.setName('unban').setNameLocalizations({ ar: 'رفع_حظر' }).setDescription('Unban a user').setDescriptionLocalizations({ ar: 'رفع الحظر عن عضو' }).addStringOption(opt => opt.setName('user').setNameLocalizations({ ar: 'عضو' }).setDescription('User ID or name').setDescriptionLocalizations({ ar: 'معرف العضو أو اسمه' }).setRequired(true)))
-    .addSubcommand(sub => sub.setName('timeout').setNameLocalizations({ ar: 'كتم' }).setDescription('Timeout a member').setDescriptionLocalizations({ ar: 'كتم عضو' }).addUserOption(opt => opt.setName('user').setNameLocalizations({ ar: 'عضو' }).setDescription('Member to timeout').setDescriptionLocalizations({ ar: 'العضو المراد كتمه' }).setRequired(true)).addIntegerOption(opt => opt.setName('duration').setNameLocalizations({ ar: 'مدة' }).setDescription('Duration in seconds').setDescriptionLocalizations({ ar: 'المدة بالثواني' }).setRequired(true)).addStringOption(opt => opt.setName('reason').setNameLocalizations({ ar: 'سبب' }).setDescription('Reason for timeout').setDescriptionLocalizations({ ar: 'سبب الكتم' }).setRequired(false)))
-    .addSubcommand(sub => sub.setName('untimeout').setNameLocalizations({ ar: 'رفع_كتم' }).setDescription('Remove timeout from a member').setDescriptionLocalizations({ ar: 'رفع الكتم عن عضو' }).addUserOption(opt => opt.setName('user').setNameLocalizations({ ar: 'عضو' }).setDescription('Member to untimeout').setDescriptionLocalizations({ ar: 'العضو المراد رفع الكتم عنه' }).setRequired(true)))
-    .addSubcommand(sub => sub.setName('warn').setNameLocalizations({ ar: 'تحذير' }).setDescription('Warn a member').setDescriptionLocalizations({ ar: 'تحذير عضو' }).addUserOption(opt => opt.setName('user').setNameLocalizations({ ar: 'عضو' }).setDescription('Member to warn').setDescriptionLocalizations({ ar: 'العضو المراد تحذيره' }).setRequired(true)).addStringOption(opt => opt.setName('reason').setNameLocalizations({ ar: 'سبب' }).setDescription('Reason for warning').setDescriptionLocalizations({ ar: 'سبب التحذير' }).setRequired(false)))
-    .addSubcommand(sub => sub.setName('warnings').setNameLocalizations({ ar: 'تحذيرات' }).setDescription('View warnings of a member').setDescriptionLocalizations({ ar: 'عرض تحذيرات عضو' }).addUserOption(opt => opt.setName('user').setNameLocalizations({ ar: 'عضو' }).setDescription('Member to check').setDescriptionLocalizations({ ar: 'العضو المراد عرض تحذيراته' }).setRequired(true)))
-    .addSubcommand(sub => sub.setName('clearwarnings').setNameLocalizations({ ar: 'مسح_تحذيرات' }).setDescription('Clear warnings of a member').setDescriptionLocalizations({ ar: 'مسح تحذيرات عضو' }).addUserOption(opt => opt.setName('user').setNameLocalizations({ ar: 'عضو' }).setDescription('Member to clear').setDescriptionLocalizations({ ar: 'العضو المراد مسح تحذيراته' }).setRequired(true)))
-    .addSubcommand(sub => sub.setName('purge').setNameLocalizations({ ar: 'مسح' }).setDescription('Delete multiple messages').setDescriptionLocalizations({ ar: 'حذف عدد من الرسائل' }).addIntegerOption(opt => opt.setName('count').setNameLocalizations({ ar: 'عدد' }).setDescription('Number of messages to delete (max 100)').setDescriptionLocalizations({ ar: 'عدد الرسائل (حد أقصى 100)' }).setRequired(true).setMinValue(1).setMaxValue(100)))
+الاوامر.push(new SlashCommandBuilder()
+    .setName('إدارة')
+    .setDescription('أوامر إدارة السيرفر')
+    .addSubcommand(sub => sub.setName('طرد').setDescription('طرد عضو من السيرفر').addUserOption(opt => opt.setName('عضو').setDescription('العضو').setRequired(true)).addStringOption(opt => opt.setName('سبب').setDescription('سبب الطرد').setRequired(false)))
+    .addSubcommand(sub => sub.setName('حظر').setDescription('حظر عضو من السيرفر').addUserOption(opt => opt.setName('عضو').setDescription('العضو').setRequired(true)).addStringOption(opt => opt.setName('سبب').setDescription('سبب الحظر').setRequired(false)))
+    .addSubcommand(sub => sub.setName('رفع_حظر').setDescription('رفع الحظر عن عضو').addStringOption(opt => opt.setName('اسم').setDescription('اسم العضو أو المعرف').setRequired(true)))
+    .addSubcommand(sub => sub.setName('كتم').setDescription('كتم عضو').addUserOption(opt => opt.setName('عضو').setDescription('العضو').setRequired(true)).addIntegerOption(opt => opt.setName('مدة').setDescription('المدة بالثواني').setRequired(true)).addStringOption(opt => opt.setName('سبب').setDescription('السبب').setRequired(false)))
+    .addSubcommand(sub => sub.setName('رفع_كتم').setDescription('رفع الكتم عن عضو').addUserOption(opt => opt.setName('عضو').setDescription('العضو').setRequired(true)))
+    .addSubcommand(sub => sub.setName('تحذير').setDescription('تحذير عضو').addUserOption(opt => opt.setName('عضو').setDescription('العضو').setRequired(true)).addStringOption(opt => opt.setName('سبب').setDescription('سبب التحذير').setRequired(false)))
+    .addSubcommand(sub => sub.setName('تحذيرات').setDescription('عرض تحذيرات عضو').addUserOption(opt => opt.setName('عضو').setDescription('العضو').setRequired(true)))
+    .addSubcommand(sub => sub.setName('مسح_تحذيرات').setDescription('مسح تحذيرات عضو').addUserOption(opt => opt.setName('عضو').setDescription('العضو').setRequired(true)))
+    .addSubcommand(sub => sub.setName('مسح').setDescription('حذف عدد من الرسائل').addIntegerOption(opt => opt.setName('عدد').setDescription('عدد الرسائل (حد أقصى 100)').setRequired(true).setMinValue(1).setMaxValue(100)))
 );
 
 // ---- أمر التذاكر ----
-commands.push(new SlashCommandBuilder()
-    .setName('ticket')
-    .setNameLocalizations({ ar: 'تذكرة' })
-    .setDescription('Ticket system')
-    .setDescriptionLocalizations({ ar: 'نظام التذاكر' })
-    .addSubcommand(sub => sub.setName('setup').setNameLocalizations({ ar: 'إعداد' }).setDescription('Setup the ticket system').setDescriptionLocalizations({ ar: 'إعداد نظام التذاكر' }).addChannelOption(opt => opt.setName('category').setNameLocalizations({ ar: 'فئة' }).setDescription('Category for tickets').setDescriptionLocalizations({ ar: 'الفئة للتذاكر' }).setRequired(true)).addRoleOption(opt => opt.setName('support_role').setNameLocalizations({ ar: 'دور_الدعم' }).setDescription('Support role').setDescriptionLocalizations({ ar: 'دور الدعم' }).setRequired(true)).addChannelOption(opt => opt.setName('log_channel').setNameLocalizations({ ar: 'قناة_السجلات' }).setDescription('Log channel for tickets').setDescriptionLocalizations({ ar: 'قناة سجلات التذاكر' }).setRequired(true)))
-    .addSubcommand(sub => sub.setName('panel').setNameLocalizations({ ar: 'لوحة' }).setDescription('Create ticket panel').setDescriptionLocalizations({ ar: 'إنشاء لوحة التذاكر' }))
-    .addSubcommand(sub => sub.setName('close').setNameLocalizations({ ar: 'إغلاق' }).setDescription('Close current ticket').setDescriptionLocalizations({ ar: 'إغلاق التذكرة الحالية' }))
+الاوامر.push(new SlashCommandBuilder()
+    .setName('تذكرة')
+    .setDescription('نظام التذاكر المتطور')
+    .addSubcommand(sub => sub.setName('إعداد').setDescription('إعداد نظام التذاكر').addChannelOption(opt => opt.setName('فئة').setDescription('فئة التذاكر').setRequired(true)).addRoleOption(opt => opt.setName('دور_الدعم').setDescription('دور الدعم').setRequired(true)).addChannelOption(opt => opt.setName('قناة_السجلات').setDescription('قناة سجلات التذاكر').setRequired(true)))
+    .addSubcommand(sub => sub.setName('لوحة').setDescription('إنشاء لوحة التذاكر'))
+    .addSubcommand(sub => sub.setName('فتح').setDescription('فتح تذكرة جديدة').addStringOption(opt => opt.setName('الموضوع').setDescription('موضوع التذكرة').setRequired(true)).addStringOption(opt => opt.setName('القسم').setDescription('قسم التذكرة').setRequired(true).addChoices(
+        { name: 'دعم فني', value: 'دعم فني' },
+        { name: 'شكوى', value: 'شكوى' },
+        { name: 'اقتراح', value: 'اقتراح' },
+        { name: 'طلب عضوية', value: 'طلب عضوية' },
+        { name: 'أخرى', value: 'أخرى' }
+    )))
+    .addSubcommand(sub => sub.setName('إغلاق').setDescription('إغلاق التذكرة الحالية'))
 );
 
 // ---- أمر الترحيب ----
-commands.push(new SlashCommandBuilder()
-    .setName('welcome')
-    .setNameLocalizations({ ar: 'ترحيب' })
-    .setDescription('Welcome system')
-    .setDescriptionLocalizations({ ar: 'نظام الترحيب' })
-    .addSubcommand(sub => sub.setName('set').setNameLocalizations({ ar: 'تعيين' }).setDescription('Set welcome channel').setDescriptionLocalizations({ ar: 'تعيين قناة الترحيب' }).addChannelOption(opt => opt.setName('channel').setNameLocalizations({ ar: 'قناة' }).setDescription('Channel for welcome').setDescriptionLocalizations({ ar: 'قناة الترحيب' }).setRequired(true)).addStringOption(opt => opt.setName('message').setNameLocalizations({ ar: 'رسالة' }).setDescription('Welcome message ({user}, {server})').setDescriptionLocalizations({ ar: 'رسالة الترحيب' }).setRequired(false)).addAttachmentOption(opt => opt.setName('image').setNameLocalizations({ ar: 'صورة' }).setDescription('Image for welcome').setDescriptionLocalizations({ ar: 'صورة الترحيب' }).setRequired(false)))
-    .addSubcommand(sub => sub.setName('goodbye').setNameLocalizations({ ar: 'وداع' }).setDescription('Set goodbye channel').setDescriptionLocalizations({ ar: 'تعيين قناة الوداع' }).addChannelOption(opt => opt.setName('channel').setNameLocalizations({ ar: 'قناة' }).setDescription('Channel for goodbye').setDescriptionLocalizations({ ar: 'قناة الوداع' }).setRequired(true)).addStringOption(opt => opt.setName('message').setNameLocalizations({ ar: 'رسالة' }).setDescription('Goodbye message ({user}, {server})').setDescriptionLocalizations({ ar: 'رسالة الوداع' }).setRequired(false)).addAttachmentOption(opt => opt.setName('image').setNameLocalizations({ ar: 'صورة' }).setDescription('Image for goodbye').setDescriptionLocalizations({ ar: 'صورة الوداع' }).setRequired(false)))
+الاوامر.push(new SlashCommandBuilder()
+    .setName('ترحيب')
+    .setDescription('نظام الترحيب والوداع')
+    .addSubcommand(sub => sub.setName('تعيين').setDescription('تعيين قناة الترحيب').addChannelOption(opt => opt.setName('قناة').setDescription('قناة الترحيب').setRequired(true)).addStringOption(opt => opt.setName('رسالة').setDescription('رسالة الترحيب (استخدم {user} و {server})').setRequired(false)).addAttachmentOption(opt => opt.setName('صورة').setDescription('صورة للترحيب').setRequired(false)))
+    .addSubcommand(sub => sub.setName('وداع').setDescription('تعيين قناة الوداع').addChannelOption(opt => opt.setName('قناة').setDescription('قناة الوداع').setRequired(true)).addStringOption(opt => opt.setName('رسالة').setDescription('رسالة الوداع (استخدم {user} و {server})').setRequired(false)).addAttachmentOption(opt => opt.setName('صورة').setDescription('صورة للوداع').setRequired(false)))
 );
 
 // ---- أمر الحماية ----
-commands.push(new SlashCommandBuilder()
-    .setName('security')
-    .setNameLocalizations({ ar: 'حماية' })
-    .setDescription('Security settings')
-    .setDescriptionLocalizations({ ar: 'إعدادات الحماية' })
-    .addSubcommand(sub => sub.setName('verification').setNameLocalizations({ ar: 'تحقق' }).setDescription('Setup verification').setDescriptionLocalizations({ ar: 'إعداد نظام التحقق' }).addRoleOption(opt => opt.setName('role').setNameLocalizations({ ar: 'دور' }).setDescription('Role to give on verify').setDescriptionLocalizations({ ar: 'الدور الذي يُمنح عند التحقق' }).setRequired(true)).addChannelOption(opt => opt.setName('channel').setNameLocalizations({ ar: 'قناة' }).setDescription('Channel for verification').setDescriptionLocalizations({ ar: 'قناة التحقق' }).setRequired(true)))
-    .addSubcommand(sub => sub.setName('antispam').setNameLocalizations({ ar: 'مكافحة_سبام' }).setDescription('Set spam threshold').setDescriptionLocalizations({ ar: 'تعيين حد السبام' }).addIntegerOption(opt => opt.setName('limit').setNameLocalizations({ ar: 'حد' }).setDescription('Messages per 5 seconds').setDescriptionLocalizations({ ar: 'عدد الرسائل في 5 ثوانٍ' }).setRequired(true).setMinValue(3).setMaxValue(20)))
-    .addSubcommand(sub => sub.setName('mute_role').setNameLocalizations({ ar: 'دور_الكتم' }).setDescription('Set mute role').setDescriptionLocalizations({ ar: 'تعيين دور الكتم' }).addRoleOption(opt => opt.setName('role').setNameLocalizations({ ar: 'دور' }).setDescription('Mute role').setDescriptionLocalizations({ ar: 'دور الكتم' }).setRequired(true)))
+الاوامر.push(new SlashCommandBuilder()
+    .setName('حماية')
+    .setDescription('إعدادات الحماية المتقدمة')
+    .addSubcommand(sub => sub.setName('تفعيل').setDescription('تفعيل وضع الحماية').addIntegerOption(opt => opt.setName('المستوى').setDescription('مستوى الحماية 1-3').setRequired(true).setMinValue(1).setMaxValue(3)))
+    .addSubcommand(sub => sub.setName('تحقق').setDescription('إعداد نظام التحقق').addRoleOption(opt => opt.setName('دور').setDescription('دور التحقق').setRequired(true)).addChannelOption(opt => opt.setName('قناة').setDescription('قناة التحقق').setRequired(true)))
+    .addSubcommand(sub => sub.setName('مكافحة_سبام').setDescription('تعيين حد السبام').addIntegerOption(opt => opt.setName('الحد').setDescription('عدد الرسائل المسموح بها في 5 ثوانٍ').setRequired(true).setMinValue(3).setMaxValue(20)))
+    .addSubcommand(sub => sub.setName('دور_الكتم').setDescription('تعيين دور الكتم').addRoleOption(opt => opt.setName('دور').setDescription('دور الكتم').setRequired(true)))
 );
 
 // ---- أمر السجلات ----
-commands.push(new SlashCommandBuilder()
-    .setName('logs')
-    .setNameLocalizations({ ar: 'سجلات' })
-    .setDescription('Logging settings')
-    .setDescriptionLocalizations({ ar: 'إعدادات السجلات' })
-    .addSubcommand(sub => sub.setName('set').setNameLocalizations({ ar: 'تعيين' }).setDescription('Set log channel').setDescriptionLocalizations({ ar: 'تعيين قناة السجلات' }).addChannelOption(opt => opt.setName('channel').setNameLocalizations({ ar: 'قناة' }).setDescription('Log channel').setDescriptionLocalizations({ ar: 'قناة السجلات' }).setRequired(true)).addStringOption(opt => opt.setName('type').setNameLocalizations({ ar: 'نوع' }).setDescription('Log type').setDescriptionLocalizations({ ar: 'نوع السجلات' }).setRequired(true).addChoices(
-        { name: 'All', value: 'all' },
-        { name: 'Member', value: 'member' },
-        { name: 'Messages', value: 'message' },
-        { name: 'Moderation', value: 'mod' }
+الاوامر.push(new SlashCommandBuilder()
+    .setName('سجلات')
+    .setDescription('إعدادات سجلات السيرفر')
+    .addSubcommand(sub => sub.setName('تعيين').setDescription('تعيين قناة السجلات').addChannelOption(opt => opt.setName('قناة').setDescription('قناة السجلات').setRequired(true)).addStringOption(opt => opt.setName('النوع').setDescription('نوع السجلات').setRequired(true).addChoices(
+        { name: 'الكل', value: 'الكل' },
+        { name: 'عضوية', value: 'عضوية' },
+        { name: 'رسائل', value: 'رسائل' },
+        { name: 'إدارة', value: 'إدارة' },
+        { name: 'تذاكر', value: 'تذاكر' }
     )))
 );
 
 // ---- أمر الأدوار ----
-commands.push(new SlashCommandBuilder()
-    .setName('roles')
-    .setNameLocalizations({ ar: 'أدوار' })
-    .setDescription('Role management')
-    .setDescriptionLocalizations({ ar: 'إدارة الأدوار' })
-    .addSubcommand(sub => sub.setName('autorole').setNameLocalizations({ ar: 'تلقائي' }).setDescription('Set auto role for new members').setDescriptionLocalizations({ ar: 'تعيين دور تلقائي للقادمين الجدد' }).addRoleOption(opt => opt.setName('role').setNameLocalizations({ ar: 'دور' }).setDescription('Role to assign').setDescriptionLocalizations({ ar: 'الدور' }).setRequired(true)))
-    .addSubcommand(sub => sub.setName('reaction').setNameLocalizations({ ar: 'تفاعلي' }).setDescription('Add reaction role').setDescriptionLocalizations({ ar: 'إضافة دور تفاعلي' }).addStringOption(opt => opt.setName('message_id').setNameLocalizations({ ar: 'معرف_الرسالة' }).setDescription('Message ID').setDescriptionLocalizations({ ar: 'معرف الرسالة' }).setRequired(true)).addRoleOption(opt => opt.setName('role').setNameLocalizations({ ar: 'دور' }).setDescription('Role to assign').setDescriptionLocalizations({ ar: 'الدور' }).setRequired(true)).addStringOption(opt => opt.setName('emoji').setNameLocalizations({ ar: 'إيموجي' }).setDescription('Emoji for reaction').setDescriptionLocalizations({ ar: 'الإيموجي' }).setRequired(true)))
-    .addSubcommand(sub => sub.setName('list').setNameLocalizations({ ar: 'قائمة' }).setDescription('List reaction roles').setDescriptionLocalizations({ ar: 'عرض الأدوار التفاعلية' }))
+الاوامر.push(new SlashCommandBuilder()
+    .setName('أدوار')
+    .setDescription('إدارة الأدوار المتقدمة')
+    .addSubcommand(sub => sub.setName('تلقائي').setDescription('تعيين دور تلقائي للقادمين الجدد').addRoleOption(opt => opt.setName('دور').setDescription('الدور التلقائي').setRequired(true)))
+    .addSubcommand(sub => sub.setName('تفاعلي').setDescription('إضافة دور تفاعلي').addStringOption(opt => opt.setName('معرف_الرسالة').setDescription('معرف الرسالة').setRequired(true)).addRoleOption(opt => opt.setName('دور').setDescription('الدور').setRequired(true)).addStringOption(opt => opt.setName('إيموجي').setDescription('الإيموجي').setRequired(true)))
+    .addSubcommand(sub => sub.setName('قائمة').setDescription('عرض الأدوار التفاعلية'))
+    .addSubcommand(sub => sub.setName('متجر').setDescription('إدارة متجر الأدوار').addRoleOption(opt => opt.setName('دور').setDescription('الدور للبيع').setRequired(true)).addIntegerOption(opt => opt.setName('سعر').setDescription('سعر الدور').setRequired(true)).addStringOption(opt => opt.setName('وصف').setDescription('وصف الدور').setRequired(false)))
 );
 
 // ---- أمر التذكير ----
-commands.push(new SlashCommandBuilder()
-    .setName('reminder')
-    .setNameLocalizations({ ar: 'تذكير' })
-    .setDescription('Set reminders')
-    .setDescriptionLocalizations({ ar: 'تعيين تذكيرات' })
-    .addSubcommand(sub => sub.setName('set').setNameLocalizations({ ar: 'تعيين' }).setDescription('Set a reminder').setDescriptionLocalizations({ ar: 'تعيين تذكير' }).addIntegerOption(opt => opt.setName('duration').setNameLocalizations({ ar: 'مدة' }).setDescription('Duration in seconds').setDescriptionLocalizations({ ar: 'المدة بالثواني' }).setRequired(true)).addStringOption(opt => opt.setName('message').setNameLocalizations({ ar: 'رسالة' }).setDescription('Reminder message').setDescriptionLocalizations({ ar: 'رسالة التذكير' }).setRequired(true)))
-    .addSubcommand(sub => sub.setName('repeat').setNameLocalizations({ ar: 'متكرر' }).setDescription('Set a repeating reminder').setDescriptionLocalizations({ ar: 'تعيين تذكير متكرر' }).addIntegerOption(opt => opt.setName('interval').setNameLocalizations({ ar: 'مدة' }).setDescription('Interval in seconds').setDescriptionLocalizations({ ar: 'المدة بين كل تذكير' }).setRequired(true)).addStringOption(opt => opt.setName('message').setNameLocalizations({ ar: 'رسالة' }).setDescription('Reminder message').setDescriptionLocalizations({ ar: 'رسالة التذكير' }).setRequired(true)))
+الاوامر.push(new SlashCommandBuilder()
+    .setName('تذكير')
+    .setDescription('تعيين تذكيرات')
+    .addSubcommand(sub => sub.setName('تعيين').setDescription('تعيين تذكير').addIntegerOption(opt => opt.setName('مدة').setDescription('المدة بالثواني').setRequired(true)).addStringOption(opt => opt.setName('رسالة').setDescription('رسالة التذكير').setRequired(true)))
+    .addSubcommand(sub => sub.setName('متكرر').setDescription('تعيين تذكير متكرر').addIntegerOption(opt => opt.setName('مدة').setDescription('المدة بين كل تذكير').setRequired(true)).addStringOption(opt => opt.setName('رسالة').setDescription('رسالة التذكير').setRequired(true)))
+);
+
+// ---- أمر العشائر ----
+الاوامر.push(new SlashCommandBuilder()
+    .setName('عشيرة')
+    .setDescription('إدارة العشائر')
+    .addSubcommand(sub => sub.setName('إنشاء').setDescription('إنشاء عشيرة جديدة').addStringOption(opt => opt.setName('الاسم').setDescription('اسم العشيرة').setRequired(true)))
+    .addSubcommand(sub => sub.setName('معلومات').setDescription('عرض معلومات عشيرة').addStringOption(opt => opt.setName('الاسم').setDescription('اسم العشيرة').setRequired(true)))
+    .addSubcommand(sub => sub.setName('دعوة').setDescription('دعوة عضو للعشيرة').addUserOption(opt => opt.setName('عضو').setDescription('العضو المراد دعوته').setRequired(true)))
+);
+
+// ---- أمر المزرعة ----
+الاوامر.push(new SlashCommandBuilder()
+    .setName('مزرعة')
+    .setDescription('إدارة المزرعة')
+    .addSubcommand(sub => sub.setName('زرع').setDescription('زراعة محصول').addStringOption(opt => opt.setName('محصول').setDescription('نوع المحصول').setRequired(true).addChoices(
+        { name: 'قمح', value: 'قمح' },
+        { name: 'ذرة', value: 'ذرة' },
+        { name: 'طماطم', value: 'طماطم' },
+        { name: 'بطاطس', value: 'بطاطس' }
+    )))
+    .addSubcommand(sub => sub.setName('حصاد').setDescription('حصاد المحصول'))
+);
+
+// ---- أمر المزادات ----
+الاوامر.push(new SlashCommandBuilder()
+    .setName('مزاد')
+    .setDescription('إدارة المزادات')
+    .addSubcommand(sub => sub.setName('إنشاء').setDescription('إنشاء مزاد جديد').addStringOption(opt => opt.setName('عنصر').setDescription('العنصر المعروض').setRequired(true)).addIntegerOption(opt => opt.setName('سعر_بدء').setDescription('سعر البداية').setRequired(true)))
+    .addSubcommand(sub => sub.setName('مزايدة').setDescription('المزايدة على عنصر').addIntegerOption(opt => opt.setName('معرف').setDescription('معرف المزاد').setRequired(true)).addIntegerOption(opt => opt.setName('مبلغ').setDescription('مبلغ المزايدة').setRequired(true)))
+);
+
+// ---- أمر الأوامر المخصصة ----
+الاوامر.push(new SlashCommandBuilder()
+    .setName('أوامر')
+    .setDescription('إدارة الأوامر المخصصة')
+    .addSubcommand(sub => sub.setName('إضافة').setDescription('إضافة أمر مخصص').addStringOption(opt => opt.setName('الاسم').setDescription('اسم الأمر').setRequired(true)).addStringOption(opt => opt.setName('الرد').setDescription('الرد عند استخدام الأمر').setRequired(true)))
+    .addSubcommand(sub => sub.setName('حذف').setDescription('حذف أمر مخصص').addStringOption(opt => opt.setName('الاسم').setDescription('اسم الأمر').setRequired(true)))
+    .addSubcommand(sub => sub.setName('قائمة').setDescription('عرض الأوامر المخصصة'))
 );
 
 // ---- أمر المالك ----
-commands.push(new SlashCommandBuilder()
-    .setName('owner')
-    .setNameLocalizations({ ar: 'مالك' })
-    .setDescription('Owner only commands')
-    .setDescriptionLocalizations({ ar: 'أوامر المالك فقط' })
-    .addSubcommand(sub => sub.setName('eval').setNameLocalizations({ ar: 'تقييم' }).setDescription('Execute JavaScript code').setDescriptionLocalizations({ ar: 'تنفيذ كود JavaScript' }).addStringOption(opt => opt.setName('code').setNameLocalizations({ ar: 'كود' }).setDescription('Code to execute').setDescriptionLocalizations({ ar: 'الكود المراد تنفيذه' }).setRequired(true)))
-    .addSubcommand(sub => sub.setName('reload').setNameLocalizations({ ar: 'إعادة_تحميل' }).setDescription('Reload slash commands').setDescriptionLocalizations({ ar: 'إعادة تحميل الأوامر الشرطية' }))
+الاوامر.push(new SlashCommandBuilder()
+    .setName('مالك')
+    .setDescription('أوامر المالك (مقيدة)')
+    .addSubcommand(sub => sub.setName('تقييم').setDescription('تنفيذ كود JavaScript').addStringOption(opt => opt.setName('كود').setDescription('الكود المراد تنفيذه').setRequired(true)))
+    .addSubcommand(sub => sub.setName('إعادة_تحميل').setDescription('إعادة تحميل الأوامر'))
+    .addSubcommand(sub => sub.setName('إحصاءات').setDescription('عرض إحصاءات البوت'))
+);
+
+// ---- أمر بينغ ----
+الاوامر.push(new SlashCommandBuilder()
+    .setName('بينغ')
+    .setDescription('اختبار سرعة استجابة البوت')
+);
+
+// ---- أمر الاستطلاعات ----
+الاوامر.push(new SlashCommandBuilder()
+    .setName('استطلاع')
+    .setDescription('إنشاء استطلاع رأي')
+    .addStringOption(opt => opt.setName('سؤال').setDescription('سؤال الاستطلاع').setRequired(true))
+    .addStringOption(opt => opt.setName('خيارات').setDescription('الخيارات مفصولة بفاصلة (مثال: نعم,لا,ربما)').setRequired(true))
+);
+
+// ---- أمر الهدايا ----
+الاوامر.push(new SlashCommandBuilder()
+    .setName('هدية')
+    .setDescription('إدارة الهدايا')
+    .addSubcommand(sub => sub.setName('إنشاء').setDescription('إنشاء هدية جديدة').addIntegerOption(opt => opt.setName('مدة').setDescription('المدة بالثواني').setRequired(true)).addIntegerOption(opt => opt.setName('فائزون').setDescription('عدد الفائزين').setRequired(true)).addStringOption(opt => opt.setName('جائزة').setDescription('الجائزة').setRequired(true)))
 );
 
 // ================== تسجيل الأوامر ==================
 const rest = new REST({ version: '10' }).setToken(TOKEN);
 
-async function registerCommands() {
+async function تسجيل_الاوامر() {
     try {
-        console.log('🔄 Registering commands...');
-        await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
-        console.log('✅ Commands registered successfully!');
+        console.log('🔄 جاري تسجيل الأوامر...');
+        await rest.put(Routes.applicationCommands(client.user.id), { body: الاوامر });
+        console.log('✅ تم تسجيل الأوامر بنجاح!');
     } catch (error) {
-        console.error('❌ Failed to register commands:', error);
+        console.error('❌ فشل تسجيل الأوامر:', error);
     }
 }
 
 // ================== أحداث البوت ==================
 client.once('ready', async () => {
-    console.log(`✅ Bot logged in as ${client.user.tag}`);
-    await registerCommands();
+    console.log(`✅ البوت ${client.user.tag} جاهز!`);
+    await تسجيل_الاوامر();
 });
 
 // ================== معالجة الأوامر ==================
-client.on(Events.InteractionCreate, async (interaction) => {
-    if (!interaction.isChatInputCommand()) return;
+client.on(Events.InteractionCreate, async (التفاعل) => {
+    if (!التفاعل.isChatInputCommand()) return;
 
-    const { commandName, options, user, guild, member, channel } = interaction;
-    await interaction.deferReply({ ephemeral: false }).catch(() => {});
+    const { commandName, options, user, guild, member, channel } = التفاعل;
+    await التفاعل.deferReply({ ephemeral: false }).catch(() => {});
 
-    // سجل الأمر
-    logEvent(guild.id, 'command', `${user.tag} used /${commandName}`, 0x00BFFF);
+    // تسجيل الأمر
+    تسجيل_حدث(guild.id, 'أمر', `${user.tag} استخدم /${commandName}`, 0x00BFFF);
 
     // ================== أمر المساعدة ==================
-    if (commandName === 'help' || commandName === 'مساعدة') {
-        const sub = options.getString('command') || options.getString('الأمر');
-        if (sub) {
-            const helpData = {
-                help: 'Show all available commands with details',
-                info: 'Show bot, server, or user information',
-                economy: 'Manage your economy (balance, daily, work, rob, slot, shop, buy)',
-                level: 'Check your level or leaderboard',
-                moderation: 'Server moderation (kick, ban, timeout, warn, purge)',
-                ticket: 'Ticket system (setup, panel, close)',
-                welcome: 'Welcome and goodbye system',
-                security: 'Security settings (verification, antispam, mute_role)',
-                logs: 'Logging settings',
-                roles: 'Role management (autorole, reaction, list)',
-                reminder: 'Set reminders',
-                owner: 'Owner only commands'
+    if (commandName === 'مساعدة') {
+        const الامر = options.getString('الأمر');
+        if (الامر) {
+            const بيانات_المساعدة = {
+                'مساعدة': 'عرض جميع الأوامر المتاحة مع شرح مفصل',
+                'معلومات': 'عرض معلومات عن البوت أو السيرفر أو العضو',
+                'اقتصاد': 'إدارة رصيدك وعملاتك (رصيد، يومي، عمل، سرقة، حظ، متجر، شراء)',
+                'مستوى': 'عرض مستواك أو ترتيب المتصدرين',
+                'إدارة': 'أوامر إدارة السيرفر (طرد، حظر، كتم، تحذير، مسح)',
+                'تذكرة': 'نظام التذاكر المتطور (إعداد، لوحة، فتح، إغلاق)',
+                'ترحيب': 'نظام الترحيب والوداع مع صور',
+                'حماية': 'إعدادات الحماية المتقدمة',
+                'سجلات': 'تعيين قناة السجلات بأنواعها',
+                'أدوار': 'إدارة الأدوار التلقائية والتفاعلية ومتجر الأدوار',
+                'تذكير': 'تعيين تذكيرات عادية أو متكررة',
+                'عشيرة': 'إنشاء وإدارة العشائر',
+                'مزرعة': 'زراعة وحصاد المحاصيل',
+                'مزاد': 'إنشاء والمزايدة في المزادات',
+                'أوامر': 'إدارة الأوامر المخصصة للسيرفر',
+                'مالك': 'أوامر مقيدة للمالك',
+                'بينغ': 'اختبار سرعة استجابة البوت',
+                'استطلاع': 'إنشاء استطلاع رأي تفاعلي',
+                'هدية': 'إنشاء هدايا وتوزيع جوائز'
             };
-            const info = helpData[sub];
-            if (info) {
-                const embed = new EmbedBuilder()
-                    .setTitle(`📖 Command: /${sub}`)
-                    .setDescription(info)
+            const معلومات = بيانات_المساعدة[الامر];
+            if (معلومات) {
+                const ايمبد = new EmbedBuilder()
+                    .setTitle(`📖 شرح الأمر: /${الامر}`)
+                    .setDescription(معلومات)
                     .setColor(0x00FF00)
-                    .addFields({ name: 'Usage', value: `/${sub}` })
-                    .setFooter({ text: 'Use /help for all commands' });
-                return interaction.editReply({ embeds: [embed] });
+                    .addFields({ name: 'الاستخدام', value: `/${الامر}` })
+                    .setFooter({ text: 'استخدم /مساعدة لعرض جميع الأوامر' });
+                return التفاعل.editReply({ embeds: [ايمبد] });
             } else {
-                return interaction.editReply({ content: `❌ No command named **${sub}**. Use /help.` });
+                return التفاعل.editReply({ content: `❌ لا يوجد أمر باسم **${الامر}**. استخدم \`/مساعدة\` لعرض جميع الأوامر.` });
             }
         }
 
-        const embed = new EmbedBuilder()
-            .setTitle('📚 Available Commands')
-            .setDescription('Use `/help <command>` for details.')
+        const ايمبد = new EmbedBuilder()
+            .setTitle('📚 قائمة الأوامر - البوت العربي الخارق')
+            .setDescription('استخدم `/مساعدة <اسم_الأمر>` للحصول على شرح تفصيلي.')
             .setColor(0x00BFFF)
             .setThumbnail(client.user.displayAvatarURL())
-            .setFooter({ text: `Requested by ${user.tag}`, iconURL: user.displayAvatarURL() });
+            .setFooter({ text: `طلب بواسطة ${user.tag}`, iconURL: user.displayAvatarURL() });
 
-        const categories = {
-            'ℹ️ Information': ['help', 'info'],
-            '💰 Economy': ['economy'],
-            '📊 Levels': ['level'],
-            '🛠️ Moderation': ['moderation'],
-            '🎫 Tickets': ['ticket'],
-            '📝 Welcome': ['welcome'],
-            '🛡️ Security': ['security', 'logs'],
-            '🎭 Roles': ['roles'],
-            '⏰ Reminders': ['reminder'],
-            '🔐 Owner': ['owner']
+        const التصنيفات = {
+            'ℹ️ معلومات': ['مساعدة', 'معلومات', 'بينغ'],
+            '💰 اقتصاد': ['اقتصاد', 'مستوى'],
+            '🛠️ إدارة': ['إدارة'],
+            '🎫 تذاكر': ['تذكرة'],
+            '📝 ترحيب': ['ترحيب'],
+            '🛡️ حماية': ['حماية', 'سجلات'],
+            '🎭 أدوار': ['أدوار'],
+            '⏰ تذكيرات': ['تذكير'],
+            '🏴 عشائر': ['عشيرة'],
+            '🌾 مزرعة': ['مزرعة'],
+            '🔨 مزادات': ['مزاد'],
+            '📋 أوامر مخصصة': ['أوامر'],
+            '📊 استطلاعات وهدايا': ['استطلاع', 'هدية'],
+            '🔐 مالك': ['مالك']
         };
 
-        let description = '';
-        for (const [category, cmds] of Object.entries(categories)) {
-            const cmdList = cmds.map(cmd => `\`/${cmd}\``).join(' ');
-            description += `**${category}**\n${cmdList}\n\n`;
+        let وصف = '';
+        for (const [تصنيف, اوامر] of Object.entries(التصنيفات)) {
+            const قائمة = اوامر.map(اسم => `\`/${اسم}\``).join(' ');
+            وصف += `**${تصنيف}**\n${قائمة}\n\n`;
         }
 
-        embed.setDescription(description);
-        embed.addFields({ name: '📖 Details', value: 'Use `/help <command>` for details.' });
+        ايمبد.setDescription(وصف);
+        ايمبد.addFields({ name: '📖 للحصول على شرح مفصل', value: 'استخدم `/مساعدة <اسم_الأمر>`' });
 
-        return interaction.editReply({ embeds: [embed] });
+        return التفاعل.editReply({ embeds: [ايمبد] });
+    }
+
+    // ================== أمر بينغ ==================
+    if (commandName === 'بينغ') {
+        return التفاعل.editReply({ content: `🏓 بونغ! ${client.ws.ping}ms` });
     }
 
     // ================== أمر المعلومات ==================
-    if (commandName === 'info' || commandName === 'معلومات') {
-        const type = options.getString('type') || options.getString('النوع');
-        if (type === 'bot') {
-            const embed = new EmbedBuilder()
-                .setTitle('🤖 Bot Information')
+    if (commandName === 'معلومات') {
+        const النوع = options.getString('النوع');
+        if (النوع === 'بوت') {
+            const ايمبد = new EmbedBuilder()
+                .setTitle('🤖 معلومات البوت')
                 .setColor(0x00BFFF)
                 .setThumbnail(client.user.displayAvatarURL())
                 .addFields(
-                    { name: 'Name', value: client.user.tag, inline: true },
-                    { name: 'Servers', value: String(client.guilds.cache.size), inline: true },
-                    { name: 'Users', value: String(client.guilds.cache.reduce((a, g) => a + g.memberCount, 0)), inline: true },
-                    { name: 'Uptime', value: moment.duration(process.uptime(), 'seconds').humanize(), inline: true },
-                    { name: 'Developer', value: '<@464646868953956353>', inline: true }
+                    { name: 'اسم البوت', value: client.user.tag, inline: true },
+                    { name: 'عدد السيرفرات', value: String(client.guilds.cache.size), inline: true },
+                    { name: 'عدد الأعضاء', value: String(client.guilds.cache.reduce((a, g) => a + g.memberCount, 0)), inline: true },
+                    { name: 'وقت التشغيل', value: moment.duration(process.uptime(), 'seconds').humanize(), inline: true },
+                    { name: 'المطور', value: '<@464646868953956353>', inline: true }
                 );
-            return interaction.editReply({ embeds: [embed] });
-        } else if (type === 'server') {
-            const g = guild;
-            const embed = new EmbedBuilder()
-                .setTitle(`📊 ${g.name}`)
+            return التفاعل.editReply({ embeds: [ايمبد] });
+        } else if (النوع === 'سيرفر') {
+            const س = guild;
+            const ايمبد = new EmbedBuilder()
+                .setTitle(`📊 ${س.name}`)
                 .setColor(0x00BFFF)
-                .setThumbnail(g.iconURL())
+                .setThumbnail(س.iconURL())
                 .addFields(
-                    { name: '🆔 ID', value: g.id, inline: true },
-                    { name: '👑 Owner', value: `<@${g.ownerId}>`, inline: true },
-                    { name: '👥 Members', value: String(g.memberCount), inline: true },
-                    { name: '📢 Channels', value: String(g.channels.cache.size), inline: true },
-                    { name: '📅 Created', value: g.createdAt.toDateString(), inline: true }
+                    { name: '🆔 المعرف', value: س.id, inline: true },
+                    { name: '👑 المالك', value: `<@${س.ownerId}>`, inline: true },
+                    { name: '👥 الأعضاء', value: String(س.memberCount), inline: true },
+                    { name: '📢 القنوات', value: String(س.channels.cache.size), inline: true },
+                    { name: '📅 التاريخ', value: س.createdAt.toDateString(), inline: true }
                 );
-            return interaction.editReply({ embeds: [embed] });
-        } else if (type === 'user') {
-            const target = options.getUser('user') || user;
-            const memberTarget = guild.members.cache.get(target.id);
-            const embed = new EmbedBuilder()
-                .setTitle(`👤 ${target.tag}`)
+            return التفاعل.editReply({ embeds: [ايمبد] });
+        } else if (النوع === 'عضو') {
+            const الهدف = options.getUser('العضو') || user;
+            const عضو = guild.members.cache.get(الهدف.id);
+            const احصائيات = جلب_احصائيات(الهدف.id, guild.id);
+            const { المستوى, الخبرة } = جلب_المستوى(الهدف.id, guild.id);
+            const مطلوب = 5 * (المستوى * المستوى) + 50 * المستوى + 100;
+            const ايمبد = new EmbedBuilder()
+                .setTitle(`👤 ${الهدف.tag}`)
                 .setColor(0x00BFFF)
-                .setThumbnail(target.displayAvatarURL())
+                .setThumbnail(الهدف.displayAvatarURL())
                 .addFields(
-                    { name: '🆔 ID', value: target.id, inline: false },
-                    { name: '📅 Joined', value: memberTarget ? memberTarget.joinedAt.toDateString() : 'N/A', inline: true },
-                    { name: '📆 Created', value: target.createdAt.toDateString(), inline: true },
-                    { name: '🎭 Roles', value: memberTarget ? memberTarget.roles.cache.map(r => r.toString()).join(' ') || 'None' : 'N/A', inline: false }
+                    { name: '🆔 المعرف', value: الهدف.id, inline: false },
+                    { name: '📅 انضم', value: عضو ? عضو.joinedAt.toDateString() : 'غير موجود', inline: true },
+                    { name: '📆 الحساب', value: الهدف.createdAt.toDateString(), inline: true },
+                    { name: '🎭 الأدوار', value: عضو ? عضو.roles.cache.map(r => r.toString()).join(' ') || 'لا يوجد' : 'غير موجود', inline: false },
+                    { name: '📊 المستوى', value: `${المستوى} (${الخبرة}/${مطلوب} XP)`, inline: true },
+                    { name: '💰 الرصيد', value: `${جلب_الرصيد(الهدف.id, guild.id)} عملة`, inline: true },
+                    { name: '📨 الرسائل', value: String(احصائيات.الرسائل), inline: true },
+                    { name: '🎙️ دقائق صوتية', value: String(احصائيات.الصوت), inline: true },
+                    { name: '🔁 التفاعلات', value: String(احصائيات.التفاعلات), inline: true }
                 );
-            return interaction.editReply({ embeds: [embed] });
+            return التفاعل.editReply({ embeds: [ايمبد] });
         }
     }
 
     // ================== أمر الاقتصاد ==================
-    if (commandName === 'economy' || commandName === 'اقتصاد') {
-        const sub = options.getSubcommand();
-        if (sub === 'balance' || sub === 'رصيد') {
-            const target = options.getUser('user') || user;
-            const bal = getBalance(target.id, guild.id);
-            return interaction.editReply({ content: `💰 ${target.tag} balance: **${bal}** coins.` });
+    if (commandName === 'اقتصاد') {
+        const الفرع = options.getSubcommand();
+        if (الفرع === 'رصيد') {
+            const الهدف = options.getUser('عضو') || user;
+            const الرصيد = جلب_الرصيد(الهدف.id, guild.id);
+            return التفاعل.editReply({ content: `💰 ${الهدف.tag} رصيدك: **${الرصيد}** عملة.` });
         }
-        if (sub === 'daily' || sub === 'يومي') {
-            const now = new Date().toISOString().slice(0, 10);
-            const row = db.prepare("SELECT daily FROM economy WHERE user_id = ? AND guild_id = ?").get(user.id, guild.id);
-            if (row && row.daily === now) return interaction.editReply({ content: '❌ Already claimed today.' });
-            const amount = Math.floor(Math.random() * 100) + 50;
-            updateBalance(user.id, guild.id, amount);
-            db.prepare("UPDATE economy SET daily = ? WHERE user_id = ? AND guild_id = ?").run(now, user.id, guild.id);
-            return interaction.editReply({ content: `✅ Claimed **${amount}** daily coins!` });
+        if (الفرع === 'يومي') {
+            const الان = new Date().toISOString().slice(0, 10);
+            const صف = db.prepare("SELECT اليومي FROM الاقتصاد WHERE المستخدم = ? AND السيرفر = ?").get(user.id, guild.id);
+            if (صف && صف.اليومي === الان) return التفاعل.editReply({ content: '❌ لقد حصلت على مكافأتك اليومية بالفعل.' });
+            const المبلغ = Math.floor(Math.random() * 100) + 50;
+            تحديث_الرصيد(user.id, guild.id, المبلغ);
+            db.prepare("UPDATE الاقتصاد SET اليومي = ? WHERE المستخدم = ? AND السيرفر = ?").run(الان, user.id, guild.id);
+            return التفاعل.editReply({ content: `✅ حصلت على **${المبلغ}** عملة كمكافأة يومية!` });
         }
-        if (sub === 'work' || sub === 'عمل') {
-            const now = Date.now();
-            const row = db.prepare("SELECT work FROM economy WHERE user_id = ? AND guild_id = ?").get(user.id, guild.id);
-            if (row && row.work) {
-                const last = parseInt(row.work);
-                if (now - last < 3600000) {
-                    const remain = Math.ceil((3600000 - (now - last)) / 1000);
-                    return interaction.editReply({ content: `⏳ Wait ${remain} seconds.` });
+        if (الفرع === 'عمل') {
+            const الان = Date.now();
+            const صف = db.prepare("SELECT العمل FROM الاقتصاد WHERE المستخدم = ? AND السيرفر = ?").get(user.id, guild.id);
+            if (صف && صف.العمل) {
+                const اخر = parseInt(صف.العمل);
+                if (الان - اخر < 3600000) {
+                    const متبقي = Math.ceil((3600000 - (الان - اخر)) / 1000);
+                    return التفاعل.editReply({ content: `⏳ انتظر ${متبقي} ثانية.` });
                 }
             }
-            const amount = Math.floor(Math.random() * 40) + 10;
-            updateBalance(user.id, guild.id, amount);
-            db.prepare("UPDATE economy SET work = ? WHERE user_id = ? AND guild_id = ?").run(String(now), user.id, guild.id);
-            return interaction.editReply({ content: `💼 Worked and earned **${amount}** coins.` });
+            const المبلغ = Math.floor(Math.random() * 40) + 10;
+            تحديث_الرصيد(user.id, guild.id, المبلغ);
+            db.prepare("UPDATE الاقتصاد SET العمل = ? WHERE المستخدم = ? AND السيرفر = ?").run(String(الان), user.id, guild.id);
+            return التفاعل.editReply({ content: `💼 عملت وكسبت **${المبلغ}** عملة.` });
         }
-        if (sub === 'rob' || sub === 'سرقة') {
-            const target = options.getUser('user');
-            const targetMember = guild.members.cache.get(target.id);
-            if (!targetMember || target.id === user.id) return interaction.editReply({ content: '❌ Choose another member.' });
-            const targetBal = getBalance(target.id, guild.id);
-            if (targetBal < 10) return interaction.editReply({ content: `❌ ${target.tag} doesn't have enough.` });
-            const success = Math.random() < 0.4;
-            if (success) {
-                const amount = Math.floor(Math.random() * Math.min(50, targetBal)) + 1;
-                updateBalance(user.id, guild.id, amount);
-                updateBalance(target.id, guild.id, -amount);
-                logEvent(guild.id, 'rob', `${user.tag} robbed ${target.tag} for ${amount}`, 0xFF0000);
-                return interaction.editReply({ content: `✅ Robbed **${amount}** coins from ${target.tag}.` });
+        if (الفرع === 'سرقة') {
+            const الهدف = options.getUser('عضو');
+            const عضو_هدف = guild.members.cache.get(الهدف.id);
+            if (!عضو_هدف || الهدف.id === user.id) return التفاعل.editReply({ content: '❌ حدد عضواً آخر.' });
+            const رصيد_هدف = جلب_الرصيد(الهدف.id, guild.id);
+            if (رصيد_هدف < 10) return التفاعل.editReply({ content: `❌ ${الهدف.tag} ليس لديه ما يكفي.` });
+            const نجاح = Math.random() < 0.4;
+            if (نجاح) {
+                const المبلغ = Math.floor(Math.random() * Math.min(50, رصيد_هدف)) + 1;
+                تحديث_الرصيد(user.id, guild.id, المبلغ);
+                تحديث_الرصيد(الهدف.id, guild.id, -المبلغ);
+                تسجيل_حدث(guild.id, 'سرقة', `${user.tag} سرق ${الهدف.tag} بمبلغ ${المبلغ}`, 0xFF0000);
+                return التفاعل.editReply({ content: `✅ سرقت **${المبلغ}** عملة من ${الهدف.tag}.` });
             } else {
-                const penalty = Math.floor(Math.random() * 20) + 1;
-                updateBalance(user.id, guild.id, -penalty);
-                return interaction.editReply({ content: `❌ Failed and lost **${penalty}** coins.` });
+                const عقوبة = Math.floor(Math.random() * 20) + 1;
+                تحديث_الرصيد(user.id, guild.id, -عقوبة);
+                return التفاعل.editReply({ content: `❌ فشلت السرقة وخسرت **${عقوبة}** عملة.` });
             }
         }
-        if (sub === 'slot' || sub === 'حظ') {
-            const bet = options.getInteger('bet') || 10;
-            const bal = getBalance(user.id, guild.id);
-            if (bet <= 0 || bal < bet) return interaction.editReply({ content: '❌ Insufficient balance.' });
-            const symbols = ['🍒', '🍋', '🍊', '🍇', '💎', '7️⃣'];
-            const res = [symbols[Math.floor(Math.random() * 6)], symbols[Math.floor(Math.random() * 6)], symbols[Math.floor(Math.random() * 6)]];
-            const embed = new EmbedBuilder().setTitle('🎰 Slot Machine').setDescription(`${res[0]} ${res[1]} ${res[2]}`).setColor(0x2F3136);
-            if (res[0] === res[1] && res[1] === res[2]) {
-                const win = bet * 10;
-                updateBalance(user.id, guild.id, win);
-                embed.addFields({ name: '🎉 Win!', value: `Won **${win}** coins!` });
-            } else if (res[0] === res[1] || res[1] === res[2] || res[0] === res[2]) {
-                const win = bet * 2;
-                updateBalance(user.id, guild.id, win);
-                embed.addFields({ name: '🎉 Small win!', value: `Won **${win}** coins!` });
+        if (الفرع === 'حظ') {
+            const رهان = options.getInteger('رهان') || 10;
+            const رصيد = جلب_الرصيد(user.id, guild.id);
+            if (رهان <= 0 || رصيد < رهان) return التفاعل.editReply({ content: '❌ رصيد غير كافٍ.' });
+            const رموز = ['🍒', '🍋', '🍊', '🍇', '💎', '7️⃣'];
+            const نتيجة = [رموز[Math.floor(Math.random() * 6)], رموز[Math.floor(Math.random() * 6)], رموز[Math.floor(Math.random() * 6)]];
+            const ايمبد = new EmbedBuilder().setTitle('🎰 ماكينة الحظ').setDescription(`${نتيجة[0]} ${نتيجة[1]} ${نتيجة[2]}`).setColor(0x2F3136);
+            if (نتيجة[0] === نتيجة[1] && نتيجة[1] === نتيجة[2]) {
+                const فوز = رهان * 10;
+                تحديث_الرصيد(user.id, guild.id, فوز);
+                ايمبد.addFields({ name: '🎉 فوز', value: `ربحت **${فوز}** عملة!` });
+            } else if (نتيجة[0] === نتيجة[1] || نتيجة[1] === نتيجة[2] || نتيجة[0] === نتيجة[2]) {
+                const فوز = رهان * 2;
+                تحديث_الرصيد(user.id, guild.id, فوز);
+                ايمبد.addFields({ name: '🎉 فوز بسيط', value: `ربحت **${فوز}** عملة!` });
             } else {
-                updateBalance(user.id, guild.id, -bet);
-                embed.addFields({ name: '😔 Loss', value: `Lost **${bet}** coins.` });
+                تحديث_الرصيد(user.id, guild.id, -رهان);
+                ايمبد.addFields({ name: '😔 خسارة', value: `خسرت **${رهان}** عملة.` });
             }
-            return interaction.editReply({ embeds: [embed] });
+            return التفاعل.editReply({ embeds: [ايمبد] });
         }
-        if (sub === 'shop' || sub === 'متجر') {
-            const embed = new EmbedBuilder().setTitle('🛒 Shop').setColor(0x00FF00)
+        if (الفرع === 'متجر') {
+            const ايمبد = new EmbedBuilder().setTitle('🛒 المتجر').setColor(0x00FF00)
                 .addFields(
-                    { name: '🎁 Gift', value: '100 coins', inline: true },
-                    { name: '⭐ Star', value: '500 coins (nickname)', inline: true },
-                    { name: '👑 Crown', value: '1000 coins (nickname)', inline: true }
+                    { name: '🎁 هدية', value: '100 عملة', inline: true },
+                    { name: '⭐ نجمة', value: '500 عملة (لقب)', inline: true },
+                    { name: '👑 تاج', value: '1000 عملة (لقب)', inline: true },
+                    { name: '🎨 لون مخصص', value: '2000 عملة', inline: true }
                 );
-            return interaction.editReply({ embeds: [embed] });
+            // عرض أدوار المتجر
+            const ادوار_المتجر = db.prepare("SELECT الدور, السعر, الوصف FROM متجر_الادوار WHERE السيرفر = ?").all(guild.id);
+            if (ادوار_المتجر.length > 0) {
+                for (const د of ادوار_المتجر) {
+                    ايمبد.addFields({ name: `<@&${د.الدور}>`, value: `${د.السعر} عملة - ${د.الوصف || 'لا يوجد وصف'}`, inline: false });
+                }
+            }
+            return التفاعل.editReply({ embeds: [ايمبد] });
         }
-        if (sub === 'buy' || sub === 'شراء') {
-            const item = options.getString('item') || options.getString('العنصر');
-            const bal = getBalance(user.id, guild.id);
-            if (item === 'gift') {
-                if (bal < 100) return interaction.editReply({ content: '❌ Need 100 coins.' });
-                updateBalance(user.id, guild.id, -100);
-                const prizes = ['🎁', '🍫', '🧸', '🎮', '📱', '💻'];
-                return interaction.editReply({ content: `✅ Bought a gift and got: ${prizes[Math.floor(Math.random() * prizes.length)]}` });
+        if (الفرع === 'شراء') {
+            const العنصر = options.getString('العنصر');
+            const رصيد = جلب_الرصيد(user.id, guild.id);
+            if (العنصر === 'هدية') {
+                if (رصيد < 100) return التفاعل.editReply({ content: '❌ تحتاج 100 عملة.' });
+                تحديث_الرصيد(user.id, guild.id, -100);
+                const جوائز = ['🎁', '🍫', '🧸', '🎮', '📱', '💻'];
+                return التفاعل.editReply({ content: `✅ اشتريت هدية وحصلت على: ${جوائز[Math.floor(Math.random() * جوائز.length)]}` });
             }
-            if (item === 'star') {
-                if (bal < 500) return interaction.editReply({ content: '❌ Need 500 coins.' });
-                updateBalance(user.id, guild.id, -500);
-                try { await member.setNickname(`⭐ ${member.displayName}`); return interaction.editReply({ content: '✅ Star added to your nickname!' }); } catch (e) { return interaction.editReply({ content: '❌ Missing permissions.' }); }
+            if (العنصر === 'نجمة') {
+                if (رصيد < 500) return التفاعل.editReply({ content: '❌ تحتاج 500 عملة.' });
+                تحديث_الرصيد(user.id, guild.id, -500);
+                try {
+                    await member.setNickname(`⭐ ${member.displayName}`);
+                    return التفاعل.editReply({ content: '✅ تم إضافة نجمة إلى اسمك!' });
+                } catch (e) {
+                    return التفاعل.editReply({ content: '❌ لا أملك صلاحية تغيير اللقب.' });
+                }
             }
-            if (item === 'crown') {
-                if (bal < 1000) return interaction.editReply({ content: '❌ Need 1000 coins.' });
-                updateBalance(user.id, guild.id, -1000);
-                try { await member.setNickname(`👑 ${member.displayName}`); return interaction.editReply({ content: '✅ Crown added to your nickname!' }); } catch (e) { return interaction.editReply({ content: '❌ Missing permissions.' }); }
+            if (العنصر === 'تاج') {
+                if (رصيد < 1000) return التفاعل.editReply({ content: '❌ تحتاج 1000 عملة.' });
+                تحديث_الرصيد(user.id, guild.id, -1000);
+                try {
+                    await member.setNickname(`👑 ${member.displayName}`);
+                    return التفاعل.editReply({ content: '✅ تم إضافة تاج إلى اسمك!' });
+                } catch (e) {
+                    return التفاعل.editReply({ content: '❌ لا أملك صلاحية تغيير اللقب.' });
+                }
             }
         }
     }
 
-    // ================== أمر المستويات ==================
-    if (commandName === 'level' || commandName === 'مستوى') {
-        const sub = options.getSubcommand();
-        if (sub === 'rank' || sub === 'رتبتي') {
-            const target = options.getUser('user') || user;
-            const { xp, level } = getXp(target.id, guild.id);
-            const needed = 5 * (level * level) + 50 * level + 100;
-            const embed = new EmbedBuilder().setTitle(`📊 ${target.tag}'s Level`).setColor(0x00FF00)
+    // ================== أمر المستوى ==================
+    if (commandName === 'مستوى') {
+        const الفرع = options.getSubcommand();
+        if (الفرع === 'رتبتي') {
+            const الهدف = options.getUser('عضو') || user;
+            const { المستوى, الخبرة } = جلب_المستوى(الهدف.id, guild.id);
+            const مطلوب = 5 * (المستوى * المستوى) + 50 * المستوى + 100;
+            const ايمبد = new EmbedBuilder().setTitle(`📊 مستوى ${الهدف.tag}`).setColor(0x00FF00)
                 .addFields(
-                    { name: 'Level', value: String(level), inline: true },
-                    { name: 'XP', value: `${xp} / ${needed}`, inline: true },
-                    { name: 'Progress', value: `${Math.floor((xp / needed) * 100)}%`, inline: true }
+                    { name: 'المستوى', value: String(المستوى), inline: true },
+                    { name: 'الخبرة', value: `${الخبرة} / ${مطلوب}`, inline: true },
+                    { name: 'التقدم', value: `${Math.floor((الخبرة / مطلوب) * 100)}%`, inline: true }
                 );
-            return interaction.editReply({ embeds: [embed] });
+            return التفاعل.editReply({ embeds: [ايمبد] });
         }
-        if (sub === 'leaderboard' || sub === 'المتصدرين') {
-            const rows = db.prepare("SELECT user_id, level, xp FROM levels WHERE guild_id = ? ORDER BY level DESC, xp DESC LIMIT 10").all(guild.id);
-            if (!rows || rows.length === 0) return interaction.editReply({ content: '❌ No data.' });
-            const desc = rows.map((r, i) => `#${i + 1} <@${r.user_id}> - Level ${r.level} (${r.xp} XP)`).join('\n');
-            const embed = new EmbedBuilder().setTitle('🏆 Leaderboard').setDescription(desc).setColor(0xFFD700);
-            return interaction.editReply({ embeds: [embed] });
+        if (الفرع === 'المتصدرين') {
+            const صفوف = db.prepare("SELECT المستخدم, المستوى, الخبرة FROM الاقتصاد WHERE السيرفر = ? ORDER BY المستوى DESC, الخبرة DESC LIMIT 10").all(guild.id);
+            if (!صفوف || صفوف.length === 0) return التفاعل.editReply({ content: '❌ لا توجد بيانات.' });
+            const وصف = صفوف.map((ص, i) => `#${i + 1} <@${ص.المستخدم}> - المستوى ${ص.المستوى} (${ص.الخبرة} XP)`).join('\n');
+            const ايمبد = new EmbedBuilder().setTitle('🏆 لوحة المتصدرين').setDescription(وصف).setColor(0xFFD700);
+            return التفاعل.editReply({ embeds: [ايمبد] });
         }
     }
 
     // ================== أمر الإدارة ==================
-    if (commandName === 'moderation' || commandName === 'إدارة') {
-        const sub = options.getSubcommand();
+    if (commandName === 'إدارة') {
+        const الفرع = options.getSubcommand();
         if (!member.permissions.has(PermissionsBitField.Flags.ModerateMembers)) {
-            return interaction.editReply({ content: '❌ You lack permissions.', ephemeral: true });
+            return التفاعل.editReply({ content: '❌ ليس لديك صلاحية.', ephemeral: true });
         }
-        if (sub === 'kick' || sub === 'طرد') {
-            const target = options.getUser('user');
-            const targetMember = guild.members.cache.get(target.id);
-            if (!targetMember) return interaction.editReply({ content: '❌ Member not found.' });
-            const reason = options.getString('reason') || 'No reason provided';
+        if (الفرع === 'طرد') {
+            const الهدف = options.getUser('عضو');
+            const عضو_هدف = guild.members.cache.get(الهدف.id);
+            if (!عضو_هدف) return التفاعل.editReply({ content: '❌ العضو غير موجود.' });
+            const سبب = options.getString('سبب') || 'لا يوجد سبب';
             try {
-                await targetMember.kick(reason);
-                logEvent(guild.id, 'kick', `${user.tag} kicked ${target.tag} (${reason})`, 0xFF0000);
-                return interaction.editReply({ content: `✅ Kicked ${target.tag}.` });
-            } catch (e) { return interaction.editReply({ content: '❌ Kick failed.' }); }
+                await عضو_هدف.kick(سبب);
+                تسجيل_حدث(guild.id, 'طرد', `${user.tag} طرد ${الهدف.tag} بسبب ${سبب}`, 0xFF0000);
+                return التفاعل.editReply({ content: `✅ تم طرد ${الهدف.tag}.` });
+            } catch (e) { return التفاعل.editReply({ content: '❌ فشل الطرد.' }); }
         }
-        if (sub === 'ban' || sub === 'حظر') {
-            const target = options.getUser('user');
-            const targetMember = guild.members.cache.get(target.id);
-            if (!targetMember) return interaction.editReply({ content: '❌ Member not found.' });
-            const reason = options.getString('reason') || 'No reason provided';
+        if (الفرع === 'حظر') {
+            const الهدف = options.getUser('عضو');
+            const عضو_هدف = guild.members.cache.get(الهدف.id);
+            if (!عضو_هدف) return التفاعل.editReply({ content: '❌ العضو غير موجود.' });
+            const سبب = options.getString('سبب') || 'لا يوجد سبب';
             try {
-                await targetMember.ban({ reason });
-                logEvent(guild.id, 'ban', `${user.tag} banned ${target.tag} (${reason})`, 0xFF0000);
-                return interaction.editReply({ content: `✅ Banned ${target.tag}.` });
-            } catch (e) { return interaction.editReply({ content: '❌ Ban failed.' }); }
+                await عضو_هدف.ban({ سبب });
+                تسجيل_حدث(guild.id, 'حظر', `${user.tag} حظر ${الهدف.tag} بسبب ${سبب}`, 0xFF0000);
+                return التفاعل.editReply({ content: `✅ تم حظر ${الهدف.tag}.` });
+            } catch (e) { return التفاعل.editReply({ content: '❌ فشل الحظر.' }); }
         }
-        if (sub === 'unban' || sub === 'رفع_حظر') {
-            const name = options.getString('user');
-            const bans = await guild.bans.fetch();
-            const banned = bans.find(ban => ban.user.tag.includes(name) || ban.user.id === name);
-            if (!banned) return interaction.editReply({ content: '❌ User not found.' });
+        if (الفرع === 'رفع_حظر') {
+            const الاسم = options.getString('اسم');
+            const محظورين = await guild.bans.fetch();
+            const محظور = محظورين.find(ح => ح.user.tag.includes(الاسم) || ح.user.id === الاسم);
+            if (!محظور) return التفاعل.editReply({ content: '❌ لم يتم العثور على العضو.' });
             try {
-                await guild.bans.remove(banned.user);
-                logEvent(guild.id, 'unban', `${user.tag} unbanned ${banned.user.tag}`, 0x00FF00);
-                return interaction.editReply({ content: `✅ Unbanned ${banned.user.tag}.` });
-            } catch (e) { return interaction.editReply({ content: '❌ Unban failed.' }); }
+                await guild.bans.remove(محظور.user);
+                تسجيل_حدث(guild.id, 'رفع_حظر', `${user.tag} رفع الحظر عن ${محظور.user.tag}`, 0x00FF00);
+                return التفاعل.editReply({ content: `✅ تم رفع الحظر عن ${محظور.user.tag}.` });
+            } catch (e) { return التفاعل.editReply({ content: '❌ فشل رفع الحظر.' }); }
         }
-        if (sub === 'timeout' || sub === 'كتم') {
-            const target = options.getUser('user');
-            const targetMember = guild.members.cache.get(target.id);
-            if (!targetMember) return interaction.editReply({ content: '❌ Member not found.' });
-            const duration = options.getInteger('duration');
-            const reason = options.getString('reason') || 'No reason provided';
+        if (الفرع === 'كتم') {
+            const الهدف = options.getUser('عضو');
+            const عضو_هدف = guild.members.cache.get(الهدف.id);
+            if (!عضو_هدف) return التفاعل.editReply({ content: '❌ العضو غير موجود.' });
+            const مدة = options.getInteger('مدة');
+            const سبب = options.getString('سبب') || 'لا يوجد سبب';
             try {
-                await targetMember.timeout(duration * 1000, reason);
-                logEvent(guild.id, 'timeout', `${user.tag} timed out ${target.tag} for ${duration}s`, 0xFFA500);
-                return interaction.editReply({ content: `✅ Timed out ${target.tag} for ${duration} seconds.` });
-            } catch (e) { return interaction.editReply({ content: '❌ Timeout failed.' }); }
+                await عضو_هدف.timeout(مدة * 1000, سبب);
+                تسجيل_حدث(guild.id, 'كتم', `${user.tag} كتم ${الهدف.tag} لمدة ${مدة} ثانية`, 0xFFA500);
+                return التفاعل.editReply({ content: `✅ تم كتم ${الهدف.tag} لمدة ${مدة} ثانية.` });
+            } catch (e) { return التفاعل.editReply({ content: '❌ فشل الكتم.' }); }
         }
-        if (sub === 'untimeout' || sub === 'رفع_كتم') {
-            const target = options.getUser('user');
-            const targetMember = guild.members.cache.get(target.id);
-            if (!targetMember) return interaction.editReply({ content: '❌ Member not found.' });
+        if (الفرع === 'رفع_كتم') {
+            const الهدف = options.getUser('عضو');
+            const عضو_هدف = guild.members.cache.get(الهدف.id);
+            if (!عضو_هدف) return التفاعل.editReply({ content: '❌ العضو غير موجود.' });
             try {
-                await targetMember.timeout(null);
-                logEvent(guild.id, 'untimeout', `${user.tag} removed timeout from ${target.tag}`, 0x00FF00);
-                return interaction.editReply({ content: `✅ Removed timeout from ${target.tag}.` });
-            } catch (e) { return interaction.editReply({ content: '❌ Failed.' }); }
+                await عضو_هدف.timeout(null);
+                تسجيل_حدث(guild.id, 'رفع_كتم', `${user.tag} رفع الكتم عن ${الهدف.tag}`, 0x00FF00);
+                return التفاعل.editReply({ content: `✅ تم رفع الكتم عن ${الهدف.tag}.` });
+            } catch (e) { return التفاعل.editReply({ content: '❌ فشل رفع الكتم.' }); }
         }
-        if (sub === 'warn' || sub === 'تحذير') {
-            const target = options.getUser('user');
-            const targetMember = guild.members.cache.get(target.id);
-            if (!targetMember) return interaction.editReply({ content: '❌ Member not found.' });
-            const reason = options.getString('reason') || 'No reason provided';
-            const count = addWarning(target.id, guild.id, reason, user.id);
-            logEvent(guild.id, 'warn', `${user.tag} warned ${target.tag} (${reason})`, 0xFFA500);
-            return interaction.editReply({ content: `⚠️ Warned ${target.tag} (Total: ${count})` });
+        if (الفرع === 'تحذير') {
+            const الهدف = options.getUser('عضو');
+            const عضو_هدف = guild.members.cache.get(الهدف.id);
+            if (!عضو_هدف) return التفاعل.editReply({ content: '❌ العضو غير موجود.' });
+            const سبب = options.getString('سبب') || 'لا يوجد سبب';
+            const عدد = اضافة_تحذير(الهدف.id, guild.id, سبب, user.id);
+            تسجيل_حدث(guild.id, 'تحذير', `${user.tag} حذر ${الهدف.tag} بسبب ${سبب}`, 0xFFA500);
+            return التفاعل.editReply({ content: `⚠️ تم تحذير ${الهدف.tag} (العدد: ${عدد})` });
         }
-        if (sub === 'warnings' || sub === 'تحذيرات') {
-            const target = options.getUser('user');
-            const warns = getWarnings(target.id, guild.id);
-            if (!warns || warns.length === 0) return interaction.editReply({ content: `✅ ${target.tag} has no warnings.` });
-            const desc = warns.map((w, i) => `#${i + 1}: ${w.reason} (by <@${w.moderator}>)`).join('\n');
-            const embed = new EmbedBuilder().setTitle(`⚠️ Warnings for ${target.tag}`).setDescription(desc).setColor(0xFF0000);
-            return interaction.editReply({ embeds: [embed] });
+        if (الفرع === 'تحذيرات') {
+            const الهدف = options.getUser('عضو');
+            const تحذيرات = جلب_التحذيرات(الهدف.id, guild.id);
+            if (!تحذيرات || تحذيرات.length === 0) return التفاعل.editReply({ content: `✅ ${الهدف.tag} ليس لديه تحذيرات.` });
+            const وصف = تحذيرات.map((ت, i) => `#${i + 1}: ${ت.السبب} (بواسطة <@${ت.المشرف}>)`).join('\n');
+            const ايمبد = new EmbedBuilder().setTitle(`⚠️ تحذيرات ${الهدف.tag}`).setDescription(وصف).setColor(0xFF0000);
+            return التفاعل.editReply({ embeds: [ايمبد] });
         }
-        if (sub === 'clearwarnings' || sub === 'مسح_تحذيرات') {
-            const target = options.getUser('user');
-            clearWarnings(target.id, guild.id);
-            logEvent(guild.id, 'clear_warns', `${user.tag} cleared warnings of ${target.tag}`, 0x00FF00);
-            return interaction.editReply({ content: `✅ Cleared warnings for ${target.tag}.` });
+        if (الفرع === 'مسح_تحذيرات') {
+            const الهدف = options.getUser('عضو');
+            مسح_التحذيرات(الهدف.id, guild.id);
+            تسجيل_حدث(guild.id, 'مسح_تحذيرات', `${user.tag} مسح تحذيرات ${الهدف.tag}`, 0x00FF00);
+            return التفاعل.editReply({ content: `✅ تم مسح تحذيرات ${الهدف.tag}.` });
         }
-        if (sub === 'purge' || sub === 'مسح') {
-            const count = options.getInteger('count');
+        if (الفرع === 'مسح') {
+            const عدد = options.getInteger('عدد');
             if (!member.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
-                return interaction.editReply({ content: '❌ You lack permissions.', ephemeral: true });
+                return التفاعل.editReply({ content: '❌ ليس لديك صلاحية.', ephemeral: true });
             }
             try {
-                await channel.bulkDelete(count, true);
-                logEvent(guild.id, 'purge', `${user.tag} purged ${count} messages`, 0x00BFFF);
-                return interaction.editReply({ content: `✅ Deleted ${count} messages.` });
-            } catch (e) { return interaction.editReply({ content: '❌ Purge failed.' }); }
+                await channel.bulkDelete(عدد, true);
+                تسجيل_حدث(guild.id, 'مسح', `${user.tag} مسح ${عدد} رسالة`, 0x00BFFF);
+                return التفاعل.editReply({ content: `✅ تم حذف ${عدد} رسالة.` });
+            } catch (e) { return التفاعل.editReply({ content: '❌ فشل الحذف.' }); }
         }
     }
 
     // ================== أمر التذاكر ==================
-    if (commandName === 'ticket' || commandName === 'تذكرة') {
-        const sub = options.getSubcommand();
-        if (sub === 'setup' || sub === 'إعداد') {
+    if (commandName === 'تذكرة') {
+        const الفرع = options.getSubcommand();
+        if (الفرع === 'إعداد') {
             if (!member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-                return interaction.editReply({ content: '❌ Administrator required.', ephemeral: true });
+                return التفاعل.editReply({ content: '❌ تحتاج صلاحية مدير.', ephemeral: true });
             }
-            const category = options.getChannel('category');
-            const supportRole = options.getRole('support_role');
-            const logChannel = options.getChannel('log_channel');
-            db.prepare("INSERT OR REPLACE INTO ticket_settings (guild_id, category_id, support_role_id, log_channel_id) VALUES (?, ?, ?, ?)")
-                .run(guild.id, category.id, supportRole.id, logChannel.id);
-            return interaction.editReply({ content: `✅ Ticket system setup complete! Category: ${category.name}, Support Role: ${supportRole.name}, Log Channel: ${logChannel.name}` });
+            const فئة = options.getChannel('فئة');
+            const دور_الدعم = options.getRole('دور_الدعم');
+            const قناة_السجلات = options.getChannel('قناة_السجلات');
+            db.prepare("INSERT OR REPLACE INTO اعدادات_التذاكر (السيرفر, الفئة, دور_الدعم, قناة_السجلات) VALUES (?, ?, ?, ?)")
+                .run(guild.id, فئة.id, دور_الدعم.id, قناة_السجلات.id);
+            return التفاعل.editReply({ content: `✅ تم إعداد نظام التذاكر! الفئة: ${فئة.name}، دور الدعم: ${دور_الدعم.name}، قناة السجلات: ${قناة_السجلات.name}` });
         }
-        if (sub === 'panel' || sub === 'لوحة') {
+        if (الفرع === 'لوحة') {
             if (!member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-                return interaction.editReply({ content: '❌ Administrator required.', ephemeral: true });
+                return التفاعل.editReply({ content: '❌ تحتاج صلاحية مدير.', ephemeral: true });
             }
-            const embed = new EmbedBuilder()
-                .setTitle('🎫 Ticket System')
-                .setDescription('Click the button below to create a ticket.')
+            const ايمبد = new EmbedBuilder()
+                .setTitle('🎫 نظام التذاكر')
+                .setDescription('اختر القسم المناسب لفتح تذكرة دعم')
                 .setColor(0x00BFFF)
                 .setImage('https://i.imgur.com/your-image-here.png');
-            const row = new ActionRowBuilder()
-                .addComponents(
-                    new ButtonBuilder().setCustomId('create_ticket').setLabel('🎫 Create Ticket').setStyle(ButtonStyle.Primary)
+            const قائمة = new StringSelectMenuBuilder()
+                .setCustomId('تذكرة_القائمة')
+                .setPlaceholder('اختر قسم التذكرة')
+                .addOptions(
+                    new StringSelectMenuOptionBuilder().setLabel('دعم فني').setDescription('مشاكل تقنية').setValue('دعم فني').setEmoji('🛠️'),
+                    new StringSelectMenuOptionBuilder().setLabel('شكوى').setDescription('تقديم شكوى').setValue('شكوى').setEmoji('📢'),
+                    new StringSelectMenuOptionBuilder().setLabel('اقتراح').setDescription('تقديم اقتراح').setValue('اقتراح').setEmoji('💡'),
+                    new StringSelectMenuOptionBuilder().setLabel('طلب عضوية').setDescription('طلب الانضمام').setValue('طلب عضوية').setEmoji('👋'),
+                    new StringSelectMenuOptionBuilder().setLabel('أخرى').setDescription('أسباب أخرى').setValue('أخرى').setEmoji('❓')
                 );
-            await interaction.editReply({ content: '✅ Ticket panel created!', ephemeral: true });
-            await channel.send({ embeds: [embed], components: [row] });
+            const صف = new ActionRowBuilder().addComponents(قائمة);
+            await التفاعل.editReply({ content: '✅ تم إنشاء لوحة التذاكر.', ephemeral: true });
+            await channel.send({ embeds: [ايمبد], components: [صف] });
         }
-        if (sub === 'close' || sub === 'إغلاق') {
-            if (!channel.name.startsWith('ticket-')) {
-                return interaction.editReply({ content: '❌ This is not a ticket channel.', ephemeral: true });
+        if (الفرع === 'فتح') {
+            const الموضوع = options.getString('الموضوع');
+            const القسم = options.getString('القسم');
+            const اعدادات = db.prepare("SELECT الفئة, دور_الدعم, قناة_السجلات FROM اعدادات_التذاكر WHERE السيرفر = ?").get(guild.id);
+            if (!اعدادات) {
+                return التفاعل.editReply({ content: '❌ نظام التذاكر غير مضبوط. اطلب من مشرف تنفيذ `/تذكرة إعداد`.', ephemeral: true });
             }
-            db.prepare("UPDATE tickets SET status = 'closed' WHERE channel_id = ?").run(channel.id);
-            logEvent(guild.id, 'ticket_close', `${user.tag} closed ticket ${channel.name}`, 0xFF0000);
-            await interaction.editReply({ content: '🔒 Ticket will be deleted in 5 seconds.' });
+            const فئة = guild.channels.cache.get(اعدادات.الفئة);
+            if (!فئة) {
+                return التفاعل.editReply({ content: '❌ الفئة غير موجودة. تواصل مع المشرف.', ephemeral: true });
+            }
+            const صلاحيات = [
+                { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+                { id: user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
+                { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
+            ];
+            const دور_الدعم = guild.roles.cache.get(اعدادات.دور_الدعم);
+            if (دور_الدعم) {
+                صلاحيات.push({ id: دور_الدعم.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] });
+            }
+            const اسم_القناة = `تذكرة-${user.username}`;
+            const قناة_تذكرة = await guild.channels.create({
+                name: اسم_القناة,
+                type: ChannelType.GuildText,
+                parent: فئة,
+                permissionOverwrites: صلاحيات,
+                topic: `📌 ${القسم} - ${الموضوع}`
+            });
+            db.prepare("INSERT INTO التذاكر (السيرفر, القناة, المستخدم, الموضوع, الحالة, التاريخ, القسم, الاولوية) VALUES (?, ?, ?, ?, 'مفتوحة', datetime('now'), ?, 'عادية')")
+                .run(guild.id, قناة_تذكرة.id, user.id, الموضوع, القسم);
+            const ايمبد = new EmbedBuilder()
+                .setTitle('🎫 تذكرة جديدة')
+                .setDescription(`**الموضوع:** ${الموضوع}\n**القسم:** ${القسم}`)
+                .setColor(0x00BFFF)
+                .addFields(
+                    { name: 'أنشأها', value: user.tag, inline: true },
+                    { name: 'الحالة', value: '🟢 مفتوحة', inline: true }
+                )
+                .setFooter({ text: 'استخدم /تذكرة إغلاق لإغلاق التذكرة' });
+            const صف = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder().setCustomId('اغلاق_تذكرة').setLabel('🔒 إغلاق التذكرة').setStyle(ButtonStyle.Danger),
+                    new ButtonBuilder().setCustomId('تولي_تذكرة').setLabel('📌 تولي').setStyle(ButtonStyle.Primary)
+                );
+            await قناة_تذكرة.send({ content: `<@${user.id}>`, embeds: [ايمبد], components: [صف] });
+            تسجيل_حدث(guild.id, 'فتح_تذكرة', `${user.tag} فتح تذكرة: ${الموضوع}`, 0x00BFFF);
+            return التفاعل.editReply({ content: `✅ تم فتح تذكرة: ${قناة_تذكرة}` });
+        }
+        if (الفرع === 'إغلاق') {
+            if (!channel.name.startsWith('تذكرة-')) {
+                return التفاعل.editReply({ content: '❌ هذه ليست قناة تذكرة.', ephemeral: true });
+            }
+            db.prepare("UPDATE التذاكر SET الحالة = 'مغلقة' WHERE القناة = ?").run(channel.id);
+            تسجيل_حدث(guild.id, 'اغلاق_تذكرة', `${user.tag} أغلق تذكرة ${channel.name}`, 0xFF0000);
+            await التفاعل.editReply({ content: '🔒 سيتم حذف التذكرة خلال 5 ثوانٍ.' });
             setTimeout(() => channel.delete().catch(() => {}), 5000);
         }
     }
 
     // ================== أمر الترحيب ==================
-    if (commandName === 'welcome' || commandName === 'ترحيب') {
-        const sub = options.getSubcommand();
+    if (commandName === 'ترحيب') {
+        const الفرع = options.getSubcommand();
         if (!member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-            return interaction.editReply({ content: '❌ Administrator required.', ephemeral: true });
+            return التفاعل.editReply({ content: '❌ تحتاج صلاحية مدير.', ephemeral: true });
         }
-        if (sub === 'set' || sub === 'تعيين') {
-            const targetChannel = options.getChannel('channel');
-            const message = options.getString('message') || 'Welcome {user} to {server}!';
-            const attachment = options.getAttachment('image');
-            const imageUrl = attachment ? attachment.url : '';
-            db.prepare("INSERT OR REPLACE INTO welcome (guild_id, channel_id, message, image_url) VALUES (?, ?, ?, ?)")
-                .run(guild.id, targetChannel.id, message, imageUrl);
-            return interaction.editReply({ content: `✅ Welcome channel set to ${targetChannel} ${imageUrl ? 'with image' : 'without image'}` });
+        if (الفرع === 'تعيين') {
+            const القناة = options.getChannel('قناة');
+            const الرسالة = options.getString('رسالة') || 'مرحباً {user} في {server}';
+            const المرفق = options.getAttachment('صورة');
+            const رابط_الصورة = المرفق ? المرفق.url : '';
+            db.prepare("INSERT OR REPLACE INTO الترحيب (السيرفر, القناة, الرسالة, الصورة) VALUES (?, ?, ?, ?)")
+                .run(guild.id, القناة.id, الرسالة, رابط_الصورة);
+            return التفاعل.editReply({ content: `✅ تم تعيين الترحيب في ${القناة} ${رابط_الصورة ? 'مع صورة' : 'بدون صورة'}` });
         }
-        if (sub === 'goodbye' || sub === 'وداع') {
-            const targetChannel = options.getChannel('channel');
-            const message = options.getString('message') || 'Goodbye {user} from {server}!';
-            const attachment = options.getAttachment('image');
-            const imageUrl = attachment ? attachment.url : '';
-            db.prepare("INSERT OR REPLACE INTO goodbye (guild_id, channel_id, message, image_url) VALUES (?, ?, ?, ?)")
-                .run(guild.id, targetChannel.id, message, imageUrl);
-            return interaction.editReply({ content: `✅ Goodbye channel set to ${targetChannel} ${imageUrl ? 'with image' : 'without image'}` });
+        if (الفرع === 'وداع') {
+            const القناة = options.getChannel('قناة');
+            const الرسالة = options.getString('رسالة') || 'وداعاً {user} من {server}';
+            const المرفق = options.getAttachment('صورة');
+            const رابط_الصورة = المرفق ? المرفق.url : '';
+            db.prepare("INSERT OR REPLACE INTO الوداع (السيرفر, القناة, الرسالة, الصورة) VALUES (?, ?, ?, ?)")
+                .run(guild.id, القناة.id, الرسالة, رابط_الصورة);
+            return التفاعل.editReply({ content: `✅ تم تعيين الوداع في ${القناة} ${رابط_الصورة ? 'مع صورة' : 'بدون صورة'}` });
         }
     }
 
     // ================== أمر الحماية ==================
-    if (commandName === 'security' || commandName === 'حماية') {
-        const sub = options.getSubcommand();
+    if (commandName === 'حماية') {
+        const الفرع = options.getSubcommand();
         if (!member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-            return interaction.editReply({ content: '❌ Administrator required.', ephemeral: true });
+            return التفاعل.editReply({ content: '❌ تحتاج صلاحية مدير.', ephemeral: true });
         }
-        if (sub === 'verification' || sub === 'تحقق') {
-            const role = options.getRole('role');
-            const channel = options.getChannel('channel');
-            db.prepare("INSERT OR REPLACE INTO verify_roles (guild_id, role_id, channel_id) VALUES (?, ?, ?)").run(guild.id, role.id, channel.id);
-            const embed = new EmbedBuilder()
-                .setTitle('✅ Verification')
-                .setDescription('Click the button below to verify yourself.')
+        if (الفرع === 'تفعيل') {
+            const المستوى = options.getInteger('المستوى');
+            try {
+                await guild.setVerificationLevel(المستوى);
+                db.prepare("INSERT OR REPLACE INTO الحماية (السيرفر, مستوى_التحقق) VALUES (?, ?)").run(guild.id, المستوى);
+                return التفاعل.editReply({ content: `✅ تم تفعيل الحماية المستوى ${المستوى}.` });
+            } catch (e) { return التفاعل.editReply({ content: '❌ فشل التفعيل.' }); }
+        }
+        if (الفرع === 'تحقق') {
+            const دور = options.getRole('دور');
+            const القناة = options.getChannel('قناة');
+            db.prepare("INSERT OR REPLACE INTO ادوار_التحقق (السيرفر, الدور, القناة) VALUES (?, ?, ?)").run(guild.id, دور.id, القناة.id);
+            const ايمبد = new EmbedBuilder()
+                .setTitle('✅ التحقق')
+                .setDescription('اضغط على الزر أدناه للتحقق من هويتك.')
                 .setColor(0x00FF00);
-            const row = new ActionRowBuilder()
+            const صف = new ActionRowBuilder()
                 .addComponents(
-                    new ButtonBuilder().setCustomId('verify_button').setLabel('✅ Verify').setStyle(ButtonStyle.Success)
+                    new ButtonBuilder().setCustomId('زر_التحقق').setLabel('✅ تحقق').setStyle(ButtonStyle.Success)
                 );
-            await channel.send({ embeds: [embed], components: [row] });
-            return interaction.editReply({ content: `✅ Verification setup complete! Role: ${role.name}, Channel: ${channel}` });
+            await القناة.send({ embeds: [ايمبد], components: [صف] });
+            return التفاعل.editReply({ content: `✅ تم تعيين دور التحقق ${دور.name} في ${القناة}` });
         }
-        if (sub === 'antispam' || sub === 'مكافحة_سبام') {
-            const limit = options.getInteger('limit');
-            db.prepare("INSERT OR REPLACE INTO auto_mod (guild_id, spam_threshold) VALUES (?, ?)").run(guild.id, limit);
-            return interaction.editReply({ content: `✅ Spam threshold set to ${limit} messages per 5 seconds.` });
+        if (الفرع === 'مكافحة_سبام') {
+            const حد = options.getInteger('الحد');
+            db.prepare("INSERT OR REPLACE INTO الحماية (السيرفر, حد_السبام) VALUES (?, ?)").run(guild.id, حد);
+            return التفاعل.editReply({ content: `✅ تم تعيين حد السبام إلى ${حد} رسائل في 5 ثوانٍ.` });
         }
-        if (sub === 'mute_role' || sub === 'دور_الكتم') {
-            const role = options.getRole('role');
-            db.prepare("INSERT OR REPLACE INTO mute_roles (guild_id, role_id) VALUES (?, ?)").run(guild.id, role.id);
-            return interaction.editReply({ content: `✅ Mute role set to ${role.name}` });
+        if (الفرع === 'دور_الكتم') {
+            const دور = options.getRole('دور');
+            db.prepare("INSERT OR REPLACE INTO ادوار_الكتم (السيرفر, الدور) VALUES (?, ?)").run(guild.id, دور.id);
+            return التفاعل.editReply({ content: `✅ تم تعيين دور الكتم: ${دور.name}` });
         }
     }
 
     // ================== أمر السجلات ==================
-    if (commandName === 'logs' || commandName === 'سجلات') {
-        const sub = options.getSubcommand();
+    if (commandName === 'سجلات') {
+        const الفرع = options.getSubcommand();
         if (!member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-            return interaction.editReply({ content: '❌ Administrator required.', ephemeral: true });
+            return التفاعل.editReply({ content: '❌ تحتاج صلاحية مدير.', ephemeral: true });
         }
-        if (sub === 'set' || sub === 'تعيين') {
-            const targetChannel = options.getChannel('channel');
-            const type = options.getString('type');
-            db.prepare("INSERT OR REPLACE INTO logging (guild_id, channel_id, type) VALUES (?, ?, ?)")
-                .run(guild.id, targetChannel.id, type);
-            return interaction.editReply({ content: `✅ Log channel set for ${type} to ${targetChannel}` });
+        if (الفرع === 'تعيين') {
+            const القناة = options.getChannel('قناة');
+            const النوع = options.getString('النوع');
+            db.prepare("INSERT OR REPLACE INTO السجلات (السيرفر, القناة, النوع) VALUES (?, ?, ?)")
+                .run(guild.id, القناة.id, النوع);
+            return التفاعل.editReply({ content: `✅ تم تعيين سجلات ${النوع} في ${القناة}` });
         }
     }
 
     // ================== أمر الأدوار ==================
-    if (commandName === 'roles' || commandName === 'أدوار') {
-        const sub = options.getSubcommand();
+    if (commandName === 'أدوار') {
+        const الفرع = options.getSubcommand();
         if (!member.permissions.has(PermissionsBitField.Flags.Administrator)) {
-            return interaction.editReply({ content: '❌ Administrator required.', ephemeral: true });
+            return التفاعل.editReply({ content: '❌ تحتاج صلاحية مدير.', ephemeral: true });
         }
-        if (sub === 'autorole' || sub === 'تلقائي') {
-            const role = options.getRole('role');
-            db.prepare("INSERT OR REPLACE INTO autoroles (guild_id, role_id) VALUES (?, ?)").run(guild.id, role.id);
-            return interaction.editReply({ content: `✅ Auto role set to ${role.name}` });
+        if (الفرع === 'تلقائي') {
+            const دور = options.getRole('دور');
+            db.prepare("INSERT OR REPLACE INTO الادوار_التلقائية (السيرفر, الدور) VALUES (?, ?)").run(guild.id, دور.id);
+            return التفاعل.editReply({ content: `✅ تم تعيين دور تلقائي: ${دور.name}` });
         }
-        if (sub === 'reaction' || sub === 'تفاعلي') {
-            const msgId = options.getString('message_id');
-            const role = options.getRole('role');
-            const emoji = options.getString('emoji');
-            db.prepare("INSERT INTO reaction_roles (guild_id, message_id, role_id, emoji) VALUES (?, ?, ?, ?)")
-                .run(guild.id, msgId, role.id, emoji);
+        if (الفرع === 'تفاعلي') {
+            const معرف_الرسالة = options.getString('معرف_الرسالة');
+            const دور = options.getRole('دور');
+            const ايموجي = options.getString('إيموجي');
+            db.prepare("INSERT INTO الادوار_التفاعلية (السيرفر, الرسالة, الدور, الايموجي) VALUES (?, ?, ?, ?)")
+                .run(guild.id, معرف_الرسالة, دور.id, ايموجي);
             try {
-                const msg = await channel.messages.fetch(msgId);
-                await msg.react(emoji);
+                const رسالة = await channel.messages.fetch(معرف_الرسالة);
+                await رسالة.react(ايموجي);
             } catch (e) {}
-            return interaction.editReply({ content: `✅ Reaction role added: ${emoji} -> ${role.name}` });
+            return التفاعل.editReply({ content: `✅ تم ربط الإيموجي ${ايموجي} بالدور ${دور.name}` });
         }
-        if (sub === 'list' || sub === 'قائمة') {
-            const rows = db.prepare("SELECT id, message_id, role_id, emoji FROM reaction_roles WHERE guild_id = ?").all(guild.id);
-            if (!rows || rows.length === 0) return interaction.editReply({ content: '📭 No reaction roles.' });
-            const list = rows.map(r => `#${r.id} - ${r.emoji} -> <@&${r.role_id}>`).join('\n');
-            return interaction.editReply({ content: `📋 Reaction roles:\n${list}` });
+        if (الفرع === 'قائمة') {
+            const صفوف = db.prepare("SELECT id, الرسالة, الدور, الايموجي FROM الادوار_التفاعلية WHERE السيرفر = ?").all(guild.id);
+            if (!صفوف || صفوف.length === 0) return التفاعل.editReply({ content: '📭 لا توجد أدوار تفاعلية.' });
+            const قائمة = صفوف.map(ص => `#${ص.id} - ${ص.الايموجي} -> <@&${ص.الدور}>`).join('\n');
+            return التفاعل.editReply({ content: `📋 الأدوار التفاعلية:\n${قائمة}` });
+        }
+        if (الفرع === 'متجر') {
+            const دور = options.getRole('دور');
+            const سعر = options.getInteger('سعر');
+            const وصف = options.getString('وصف') || 'لا يوجد وصف';
+            db.prepare("INSERT INTO متجر_الادوار (السيرفر, الدور, السعر, الوصف) VALUES (?, ?, ?, ?)")
+                .run(guild.id, دور.id, سعر, وصف);
+            return التفاعل.editReply({ content: `✅ تم إضافة الدور ${دور.name} إلى المتجر بسعر ${سعر} عملة.` });
         }
     }
 
     // ================== أمر التذكير ==================
-    if (commandName === 'reminder' || commandName === 'تذكير') {
-        const sub = options.getSubcommand();
-        if (sub === 'set' || sub === 'تعيين') {
-            const duration = options.getInteger('duration');
-            const msgText = options.getString('message');
-            const remindTime = Date.now() + duration * 1000;
-            db.prepare("INSERT INTO reminders (user_id, channel_id, message, remind_time) VALUES (?, ?, ?, ?)")
-                .run(user.id, channel.id, msgText, String(remindTime));
-            return interaction.editReply({ content: `✅ Reminder set for ${duration} seconds.` });
+    if (commandName === 'تذكير') {
+        const الفرع = options.getSubcommand();
+        if (الفرع === 'تعيين') {
+            const مدة = options.getInteger('مدة');
+            const رسالة = options.getString('رسالة');
+            const الوقت = Date.now() + مدة * 1000;
+            db.prepare("INSERT INTO التذكيرات (المستخدم, القناة, الرسالة, الوقت) VALUES (?, ?, ?, ?)")
+                .run(user.id, channel.id, رسالة, String(الوقت));
+            return التفاعل.editReply({ content: `✅ تم تعيين تذكير بعد ${مدة} ثانية.` });
         }
-        if (sub === 'repeat' || sub === 'متكرر') {
-            const interval = options.getInteger('interval');
-            const msgText = options.getString('message');
-            const remindTime = Date.now() + interval * 1000;
-            db.prepare("INSERT INTO reminders (user_id, channel_id, message, remind_time, repeat_interval) VALUES (?, ?, ?, ?, ?)")
-                .run(user.id, channel.id, msgText, String(remindTime), interval);
-            return interaction.editReply({ content: `✅ Repeating reminder set every ${interval} seconds.` });
+        if (الفرع === 'متكرر') {
+            const مدة = options.getInteger('مدة');
+            const رسالة = options.getString('رسالة');
+            const الوقت = Date.now() + مدة * 1000;
+            db.prepare("INSERT INTO التذكيرات (المستخدم, القناة, الرسالة, الوقت, التكرار) VALUES (?, ?, ?, ?, ?)")
+                .run(user.id, channel.id, رسالة, String(الوقت), مدة);
+            return التفاعل.editReply({ content: `✅ سيتم تذكيرك كل ${مدة} ثانية.` });
+        }
+    }
+
+    // ================== أمر العشيرة ==================
+    if (commandName === 'عشيرة') {
+        const الفرع = options.getSubcommand();
+        if (الفرع === 'إنشاء') {
+            const الاسم = options.getString('الاسم');
+            const موجود = db.prepare("SELECT * FROM العشائر WHERE السيرفر = ? AND الاسم = ?").get(guild.id, الاسم);
+            if (موجود) return التفاعل.editReply({ content: '❌ هذه العشيرة موجودة.' });
+            db.prepare("INSERT INTO العشائر (السيرفر, الاسم, المالك, الاعضاء) VALUES (?, ?, ?, ?)")
+                .run(guild.id, الاسم, user.id, JSON.stringify([user.id]));
+            تسجيل_حدث(guild.id, 'عشيرة', `${user.tag} أنشأ عشيرة ${الاسم}`, 0x00BFFF);
+            return التفاعل.editReply({ content: `✅ تم إنشاء عشيرة **${الاسم}**` });
+        }
+        if (الفرع === 'معلومات') {
+            const الاسم = options.getString('الاسم');
+            const صف = db.prepare("SELECT * FROM العشائر WHERE السيرفر = ? AND الاسم = ?").get(guild.id, الاسم);
+            if (!صف) return التفاعل.editReply({ content: '❌ العشيرة غير موجودة.' });
+            const الاعضاء = JSON.parse(صف.الاعضاء);
+            const ايمبد = new EmbedBuilder().setTitle(`🏴 عشيرة ${صف.الاسم}`).setColor(0xFF0000)
+                .addFields(
+                    { name: 'المالك', value: `<@${صف.المالك}>`, inline: true },
+                    { name: 'الأعضاء', value: الاعضاء.map(id => `<@${id}>`).join(', ') || 'لا يوجد', inline: false },
+                    { name: 'المستوى', value: String(صف.المستوى), inline: true }
+                );
+            return التفاعل.editReply({ embeds: [ايمبد] });
+        }
+        if (الفرع === 'دعوة') {
+            const عضو = options.getUser('عضو');
+            const صف = db.prepare("SELECT المالك, الاعضاء FROM العشائر WHERE السيرفر = ? AND المالك = ?").get(guild.id, user.id);
+            if (!صف) return التفاعل.editReply({ content: '❌ أنت لست مالك عشيرة.' });
+            const الاعضاء = JSON.parse(صف.الاعضاء);
+            if (الاعضاء.includes(عضو.id)) return التفاعل.editReply({ content: `❌ ${عضو.tag} بالفعل في العشيرة.` });
+            الاعضاء.push(عضو.id);
+            db.prepare("UPDATE العشائر SET الاعضاء = ? WHERE السيرفر = ? AND المالك = ?").run(JSON.stringify(الاعضاء), guild.id, user.id);
+            return التفاعل.editReply({ content: `✅ تمت دعوة ${عضو.tag} إلى العشيرة.` });
+        }
+    }
+
+    // ================== أمر المزرعة ==================
+    if (commandName === 'مزرعة') {
+        const الفرع = options.getSubcommand();
+        if (الفرع === 'زرع') {
+            const محصول = options.getString('محصول');
+            const اوقات = { قمح: 60, ذرة: 120, طماطم: 180, بطاطس: 240 };
+            const الان = Date.now();
+            const جاهز = الان + اوقات[محصول] * 1000;
+            db.prepare("INSERT INTO المزارع (المستخدم, السيرفر, المحصول, وقت_الزرع, وقت_الحصاد) VALUES (?, ?, ?, ?, ?)")
+                .run(user.id, guild.id, محصول, String(الان), String(جاهز));
+            return التفاعل.editReply({ content: `🌱 زرعت **${محصول}**، ستكون جاهزة بعد ${اوقات[محصول]} ثانية.` });
+        }
+        if (الفرع === 'حصاد') {
+            const صف = db.prepare("SELECT المحصول, وقت_الحصاد FROM المزارع WHERE المستخدم = ? AND السيرفر = ? AND الحالة = 'نمو'").get(user.id, guild.id);
+            if (!صف) return التفاعل.editReply({ content: '❌ ليس لديك أي محصول.' });
+            const الان = Date.now();
+            if (الان < parseInt(صف.وقت_الحصاد)) {
+                const متبقي = Math.ceil((parseInt(صف.وقت_الحصاد) - الان) / 1000);
+                return التفاعل.editReply({ content: `⏳ المحصول جاهز بعد ${متبقي} ثانية.` });
+            }
+            const مكافآت = { قمح: 10, ذرة: 20, طماطم: 30, بطاطس: 40 };
+            const المبلغ = مكافآت[صف.المحصول] || 10;
+            تحديث_الرصيد(user.id, guild.id, المبلغ);
+            db.prepare("UPDATE المزارع SET الحالة = 'محصود' WHERE المستخدم = ? AND السيرفر = ?").run(user.id, guild.id);
+            return التفاعل.editReply({ content: `✅ حصدت **${صف.المحصول}** وحصلت على **${المبلغ}** عملة!` });
+        }
+    }
+
+    // ================== أمر المزاد ==================
+    if (commandName === 'مزاد') {
+        const الفرع = options.getSubcommand();
+        if (الفرع === 'إنشاء') {
+            const العنصر = options.getString('عنصر');
+            const سعر_بدء = options.getInteger('سعر_بدء');
+            const انتهاء = Date.now() + 3600000;
+            db.prepare("INSERT INTO المزادات (السيرفر, العنصر, البائع, السعر_البدئي, السعر_الحالي, وقت_الانتهاء) VALUES (?, ?, ?, ?, ?, ?)")
+                .run(guild.id, العنصر, user.id, سعر_بدء, سعر_بدء, String(انتهاء));
+            تسجيل_حدث(guild.id, 'مزاد', `${user.tag} بدأ مزاداً لـ ${العنصر}`, 0xFFD700);
+            return التفاعل.editReply({ content: `🔨 تم بدء مزاد لـ **${العنصر}** بسعر ${سعر_بدء} عملة.` });
+        }
+        if (الفرع === 'مزايدة') {
+            const معرف = options.getInteger('معرف');
+            const مبلغ = options.getInteger('مبلغ');
+            const صف = db.prepare("SELECT العنصر, السعر_الحالي, البائع FROM المزادات WHERE id = ? AND الحالة = 'نشط'").get(معرف);
+            if (!صف) return التفاعل.editReply({ content: '❌ المزاد غير موجود.' });
+            if (مبلغ <= صف.السعر_الحالي) return التفاعل.editReply({ content: `❌ المبلغ يجب أن يزيد عن ${صف.السعر_الحالي}.` });
+            if (user.id === صف.البائع) return التفاعل.editReply({ content: '❌ لا يمكنك المزايدة على عنصرك.' });
+            db.prepare("UPDATE المزادات SET السعر_الحالي = ?, المزايد = ? WHERE id = ?").run(مبلغ, user.id, معرف);
+            return التفاعل.editReply({ content: `✅ تم المزايدة بـ **${مبلغ}** عملة على **${صف.العنصر}**.` });
+        }
+    }
+
+    // ================== أمر الأوامر المخصصة ==================
+    if (commandName === 'أوامر') {
+        const الفرع = options.getSubcommand();
+        if (!member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+            return التفاعل.editReply({ content: '❌ تحتاج صلاحية مدير.', ephemeral: true });
+        }
+        if (الفرع === 'إضافة') {
+            const الاسم = options.getString('الاسم');
+            const الرد = options.getString('الرد');
+            db.prepare("INSERT OR REPLACE INTO الاوامر_المخصصة (السيرفر, الاسم, الرد) VALUES (?, ?, ?)")
+                .run(guild.id, الاسم.toLowerCase(), الرد);
+            return التفاعل.editReply({ content: `✅ تم إضافة الأمر /${الاسم}` });
+        }
+        if (الفرع === 'حذف') {
+            const الاسم = options.getString('الاسم');
+            db.prepare("DELETE FROM الاوامر_المخصصة WHERE السيرفر = ? AND الاسم = ?").run(guild.id, الاسم.toLowerCase());
+            return التفاعل.editReply({ content: `✅ تم حذف الأمر /${الاسم}` });
+        }
+        if (الفرع === 'قائمة') {
+            const صفوف = db.prepare("SELECT الاسم, الرد FROM الاوامر_المخصصة WHERE السيرفر = ?").all(guild.id);
+            if (!صفوف || صفوف.length === 0) return التفاعل.editReply({ content: '📭 لا توجد أوامر مخصصة.' });
+            const قائمة = صفوف.map(ص => `/${ص.الاسم} - ${ص.الرد}`).join('\n');
+            return التفاعل.editReply({ content: `📋 الأوامر المخصصة:\n${قائمة}` });
         }
     }
 
     // ================== أمر المالك ==================
-    if (commandName === 'owner' || commandName === 'مالك') {
-        const ownerId = '464646868953956353';
-        if (user.id !== ownerId) {
-            return interaction.editReply({ content: '❌ This command is restricted to the bot owner.', ephemeral: true });
+    if (commandName === 'مالك') {
+        const معرف_المالك = '464646868953956353';
+        if (user.id !== معرف_المالك) {
+            return التفاعل.editReply({ content: '❌ هذا الأمر مقيد للمالك فقط.', ephemeral: true });
         }
-        const sub = options.getSubcommand();
-        if (sub === 'eval' || sub === 'تقييم') {
-            const code = options.getString('code');
+        const الفرع = options.getSubcommand();
+        if (الفرع === 'تقييم') {
+            const كود = options.getString('كود');
             try {
-                const result = eval(code);
-                return interaction.editReply({ content: `📊 Result: \`\`\`js\n${result}\n\`\`\`` });
-            } catch (e) {
-                return interaction.editReply({ content: `❌ Error: ${e.message}` });
+                const نتيجة = eval(كود);
+                return التفاعل.editReply({ content: `📊 النتيجة: \`\`\`js\n${نتيجة}\n\`\`\`` });
+            } catch (خطأ) {
+                return التفاعل.editReply({ content: `❌ خطأ: ${خطأ.message}` });
             }
         }
-        if (sub === 'reload' || sub === 'إعادة_تحميل') {
-            await registerCommands();
-            return interaction.editReply({ content: '✅ Commands reloaded.' });
+        if (الفرع === 'إعادة_تحميل') {
+            await تسجيل_الاوامر();
+            return التفاعل.editReply({ content: '✅ تم إعادة تحميل الأوامر.' });
+        }
+        if (الفرع === 'إحصاءات') {
+            const عدد_السيرفرات = client.guilds.cache.size;
+            const عدد_الأعضاء = client.guilds.cache.reduce((a, g) => a + g.memberCount, 0);
+            const عدد_الأوامر = الاوامر.length;
+            const ايمبد = new EmbedBuilder()
+                .setTitle('📊 إحصاءات البوت')
+                .setColor(0x00BFFF)
+                .addFields(
+                    { name: 'عدد السيرفرات', value: String(عدد_السيرفرات), inline: true },
+                    { name: 'عدد الأعضاء', value: String(عدد_الأعضاء), inline: true },
+                    { name: 'عدد الأوامر', value: String(عدد_الأوامر), inline: true },
+                    { name: 'وقت التشغيل', value: moment.duration(process.uptime(), 'seconds').humanize(), inline: true }
+                );
+            return التفاعل.editReply({ embeds: [ايمبد] });
+        }
+    }
+
+    // ================== أمر الاستطلاع ==================
+    if (commandName === 'استطلاع') {
+        const سؤال = options.getString('سؤال');
+        const خيارات_نص = options.getString('خيارات');
+        const خيارات = خيارات_نص.split(',').map(خ => خ.trim()).filter(خ => خ.length > 0);
+        if (خيارات.length < 2) return التفاعل.editReply({ content: '❌ تحتاج إلى خيارين على الأقل.' });
+        if (خيارات.length > 10) return التفاعل.editReply({ content: '❌ لا يمكن أن يتجاوز عدد الخيارات 10.' });
+        const ايموجيات = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+        const وصف = خيارات.map((خ, i) => `${ايموجيات[i]} ${خ}`).join('\n');
+        const ايمبد = new EmbedBuilder().setTitle(`📊 استطلاع: ${سؤال}`).setDescription(وصف).setColor(0x00FF00);
+        const رسالة = await channel.send({ embeds: [ايمبد] });
+        for (let i = 0; i < خيارات.length; i++) {
+            await رسالة.react(ايموجيات[i]);
+        }
+        db.prepare("INSERT INTO الاستطلاعات (السيرفر, القناة, الرسالة, السؤال, الخيارات) VALUES (?, ?, ?, ?, ?)")
+            .run(guild.id, channel.id, رسالة.id, سؤال, JSON.stringify(خيارات));
+        return التفاعل.editReply({ content: '✅ تم إنشاء الاستطلاع!' });
+    }
+
+    // ================== أمر الهدية ==================
+    if (commandName === 'هدية') {
+        const الفرع = options.getSubcommand();
+        if (الفرع === 'إنشاء') {
+            if (!member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+                return التفاعل.editReply({ content: '❌ تحتاج صلاحية مدير.', ephemeral: true });
+            }
+            const مدة = options.getInteger('مدة') * 1000;
+            const فائزون = options.getInteger('فائزون');
+            const جائزة = options.getString('جائزة');
+            const ايمبد = new EmbedBuilder()
+                .setTitle('🎁 هدية جديدة!')
+                .setDescription(`الجائزة: ${جائزة}\nالفائزون: ${فائزون}`)
+                .setColor(0xFFD700)
+                .setFooter({ text: 'تفاعل بـ 🎉 للمشاركة' });
+            const رسالة = await channel.send({ embeds: [ايمبد] });
+            await رسالة.react('🎉');
+            const وقت_الانتهاء = Date.now() + مدة;
+            db.prepare("INSERT INTO الهدايا (السيرفر, القناة, الرسالة, الجائزة, وقت_الانتهاء, الفائزون, المشاركون) VALUES (?, ?, ?, ?, ?, ?, ?)")
+                .run(guild.id, channel.id, رسالة.id, جائزة, String(وقت_الانتهاء), فائزون, '[]');
+            setTimeout(async () => {
+                const صف = db.prepare("SELECT المشاركون FROM الهدايا WHERE الرسالة = ?").get(رسالة.id);
+                if (!صف) return;
+                const مشاركون = JSON.parse(صف.المشاركون);
+                if (مشاركون.length === 0) return channel.send('❌ لا يوجد مشاركون في الهدية.');
+                const مختارون = [];
+                const خلط = مشاركون.sort(() => 0.5 - Math.random());
+                for (let i = 0; i < Math.min(فائزون, خلط.length); i++) مختارون.push(خلط[i]);
+                const منشن = مختارون.map(id => `<@${id}>`).join(', ');
+                channel.send(`🎉 الفائزون في هدية ${جائزة}: ${منشن}`);
+                db.prepare("DELETE FROM الهدايا WHERE الرسالة = ?").run(رسالة.id);
+            }, مدة);
+            return التفاعل.editReply({ content: '✅ تم إنشاء الهدية!' });
         }
     }
 });
 
 // ================== أحداث العضوية ==================
-client.on(Events.GuildMemberAdd, async (member) => {
+client.on(Events.GuildMemberAdd, async (عضو) => {
     // الترحيب
-    const welcome = db.prepare("SELECT channel_id, message, image_url FROM welcome WHERE guild_id = ?").get(member.guild.id);
-    if (welcome) {
-        const channel = member.guild.channels.cache.get(welcome.channel_id);
-        if (channel) {
-            const msg = welcome.message.replace(/{user}/g, member.toString()).replace(/{server}/g, member.guild.name);
-            const embed = new EmbedBuilder()
-                .setTitle('👋 Welcome!')
-                .setDescription(msg)
+    const ترحيب = db.prepare("SELECT القناة, الرسالة, الصورة FROM الترحيب WHERE السيرفر = ?").get(عضو.guild.id);
+    if (ترحيب) {
+        const قناة = عضو.guild.channels.cache.get(ترحيب.القناة);
+        if (قناة) {
+            const رسالة = ترحيب.الرسالة.replace(/{user}/g, عضو.toString()).replace(/{server}/g, عضو.guild.name);
+            const ايمبد = new EmbedBuilder()
+                .setTitle('👋 مرحباً!')
+                .setDescription(رسالة)
                 .setColor(0x00FF00)
-                .setThumbnail(member.displayAvatarURL());
-            if (welcome.image_url) embed.setImage(welcome.image_url);
-            channel.send({ embeds: [embed] });
+                .setThumbnail(عضو.displayAvatarURL());
+            if (ترحيب.الصورة) ايمبد.setImage(ترحيب.الصورة);
+            قناة.send({ embeds: [ايمبد] });
         }
     }
     // الأدوار التلقائية
-    const autoroles = db.prepare("SELECT role_id FROM autoroles WHERE guild_id = ?").all(member.guild.id);
-    for (const r of autoroles) {
-        const role = member.guild.roles.cache.get(r.role_id);
-        if (role) member.roles.add(role).catch(() => {});
+    const ادوار = db.prepare("SELECT الدور FROM الادوار_التلقائية WHERE السيرفر = ?").all(عضو.guild.id);
+    for (const د of ادوار) {
+        const دور = عضو.guild.roles.cache.get(د.الدور);
+        if (دور) عضو.roles.add(دور).catch(() => {});
     }
     // السجلات
-    logEvent(member.guild.id, 'member_join', `${member.user.tag} joined the server.`, 0x00FF00);
+    تسجيل_حدث(عضو.guild.id, 'عضوية', `${عضو.user.tag} انضم إلى السيرفر.`, 0x00FF00);
 });
 
-client.on(Events.GuildMemberRemove, (member) => {
+client.on(Events.GuildMemberRemove, (عضو) => {
     // الوداع
-    const goodbye = db.prepare("SELECT channel_id, message, image_url FROM goodbye WHERE guild_id = ?").get(member.guild.id);
-    if (goodbye) {
-        const channel = member.guild.channels.cache.get(goodbye.channel_id);
-        if (channel) {
-            const msg = goodbye.message.replace(/{user}/g, member.user.tag).replace(/{server}/g, member.guild.name);
-            const embed = new EmbedBuilder()
-                .setTitle('👋 Goodbye!')
-                .setDescription(msg)
+    const وداع = db.prepare("SELECT القناة, الرسالة, الصورة FROM الوداع WHERE السيرفر = ?").get(عضو.guild.id);
+    if (وداع) {
+        const قناة = عضو.guild.channels.cache.get(وداع.القناة);
+        if (قناة) {
+            const رسالة = وداع.الرسالة.replace(/{user}/g, عضو.user.tag).replace(/{server}/g, عضو.guild.name);
+            const ايمبد = new EmbedBuilder()
+                .setTitle('👋 وداعاً!')
+                .setDescription(رسالة)
                 .setColor(0xFF0000)
-                .setThumbnail(member.displayAvatarURL());
-            if (goodbye.image_url) embed.setImage(goodbye.image_url);
-            channel.send({ embeds: [embed] });
+                .setThumbnail(عضو.displayAvatarURL());
+            if (وداع.الصورة) ايمبد.setImage(وداع.الصورة);
+            قناة.send({ embeds: [ايمبد] });
         }
     }
     // السجلات
-    logEvent(member.guild.id, 'member_leave', `${member.user.tag} left the server.`, 0xFF0000);
+    تسجيل_حدث(عضو.guild.id, 'عضوية', `${عضو.user.tag} غادر السيرفر.`, 0xFF0000);
 });
 
 // ================== نظام الحماية المتقدم ==================
-const messageCache = new Collection();
+const ذاكرة_الرسائل = new Collection();
 
-client.on(Events.MessageCreate, async (message) => {
-    if (message.author.bot || !message.guild) return;
+client.on(Events.MessageCreate, async (رسالة) => {
+    if (رسالة.author.bot || !رسالة.guild) return;
 
     // نظام مكافحة السبام
-    const spamConfig = db.prepare("SELECT spam_threshold FROM auto_mod WHERE guild_id = ?").get(message.guild.id);
-    const threshold = spamConfig ? spamConfig.spam_threshold : 5;
-    const key = `${message.author.id}-${message.guild.id}`;
-    const now = Date.now();
-    if (!messageCache.has(key)) messageCache.set(key, []);
-    const timestamps = messageCache.get(key);
-    timestamps.push(now);
-    const recent = timestamps.filter(t => now - t < 5000);
-    messageCache.set(key, recent);
-    if (recent.length > threshold) {
+    const اعدادات_السبام = db.prepare("SELECT حد_السبام FROM الحماية WHERE السيرفر = ?").get(رسالة.guild.id);
+    const حد = اعدادات_السبام ? اعدادات_السبام.حد_السبام : 5;
+    const مفتاح = `${رسالة.author.id}-${رسالة.guild.id}`;
+    const الان = Date.now();
+    if (!ذاكرة_الرسائل.has(مفتاح)) ذاكرة_الرسائل.set(مفتاح, []);
+    const طوابع = ذاكرة_الرسائل.get(مفتاح);
+    طوابع.push(الان);
+    const حديثة = طوابع.filter(ت => الان - ت < 5000);
+    ذاكرة_الرسائل.set(مفتاح, حديثة);
+    if (حديثة.length > حد) {
         try {
-            await message.author.timeout(60000, 'Spam');
-            logEvent(message.guild.id, 'spam', `${message.author.tag} was timed out for spamming.`, 0xFF0000);
-            await message.channel.send(`🔇 ${message.author} was timed out for spamming.`);
-        } catch (e) {}
+            await رسالة.author.timeout(60000, 'سبام');
+            const دور_الكتم = db.prepare("SELECT الدور FROM ادوار_الكتم WHERE السيرفر = ?").get(رسالة.guild.id);
+            if (دور_الكتم) {
+                const دور = رسالة.guild.roles.cache.get(دور_الكتم.الدور);
+                if (دور) await رسالة.member.roles.add(دور);
+            }
+            تسجيل_حدث(رسالة.guild.id, 'سبام', `${رسالة.author.tag} تم كتمه بسبب السبام`, 0xFF0000);
+            await رسالة.channel.send(`🔇 تم كتم ${رسالة.author} بسبب السبام.`);
+        } catch (خطأ) {}
     }
 
     // نظام المستويات
-    if (!message.content.startsWith('/')) {
-        const xpGain = Math.floor(Math.random() * 15) + 5;
-        addXp(message.author.id, message.guild.id, xpGain);
-        updateStat(message.author.id, message.guild.id, 'messages', 1);
+    if (!رسالة.content.startsWith('/')) {
+        const خبرة = Math.floor(Math.random() * 15) + 5;
+        اضافة_خبرة(رسالة.author.id, رسالة.guild.id, خبرة);
+        تحديث_احصائية(رسالة.author.id, رسالة.guild.id, 'الرسائل', 1);
     }
 });
 
 // ================== سجلات الرسائل ==================
-client.on(Events.MessageDelete, (message) => {
-    if (!message.guild || message.author?.bot) return;
-    logEvent(message.guild.id, 'message_delete', `${message.author?.tag} deleted: ${message.content?.slice(0, 100) || '[Media]'}`, 0xFF6347);
+client.on(Events.MessageDelete, (رسالة) => {
+    if (!رسالة.guild || رسالة.author?.bot) return;
+    تسجيل_حدث(رسالة.guild.id, 'حذف_رسالة', `${رسالة.author?.tag} حذف: ${رسالة.content?.slice(0, 100) || '[ميديا]'}`, 0xFF6347);
 });
 
-client.on(Events.MessageUpdate, (oldMsg, newMsg) => {
-    if (!oldMsg.guild || oldMsg.author?.bot || oldMsg.content === newMsg.content) return;
-    logEvent(oldMsg.guild.id, 'message_edit', `${oldMsg.author?.tag} edited: ${oldMsg.content?.slice(0, 50)} -> ${newMsg.content?.slice(0, 50)}`, 0xFFA500);
+client.on(Events.MessageUpdate, (قديمة, جديدة) => {
+    if (!قديمة.guild || قديمة.author?.bot || قديمة.content === جديدة.content) return;
+    تسجيل_حدث(قديمة.guild.id, 'تعديل_رسالة', `${قديمة.author?.tag} عدل: ${قديمة.content?.slice(0, 50)} -> ${جديدة.content?.slice(0, 50)}`, 0xFFA500);
 });
 
 // ================== أحداث التفاعلات ==================
-client.on(Events.InteractionCreate, async (interaction) => {
-    if (interaction.isButton()) {
-        if (interaction.customId === 'create_ticket') {
-            const settings = db.prepare("SELECT category_id, support_role_id, log_channel_id FROM ticket_settings WHERE guild_id = ?").get(interaction.guild.id);
-            if (!settings) {
-                return interaction.reply({ content: '❌ Ticket system not set up. Ask an admin to run `/ticket setup`.', ephemeral: true });
+client.on(Events.InteractionCreate, async (تفاعل) => {
+    if (تفاعل.isButton()) {
+        if (تفاعل.customId === 'اغلاق_تذكرة') {
+            if (!تفاعل.channel.name.startsWith('تذكرة-')) {
+                return تفاعل.reply({ content: '❌ هذه ليست قناة تذكرة.', ephemeral: true });
             }
-            const category = interaction.guild.channels.cache.get(settings.category_id);
-            if (!category) {
-                return interaction.reply({ content: '❌ Category not found. Please contact an admin.', ephemeral: true });
-            }
-            const overwrites = [
-                { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-                { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
-                { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
-            ];
-            // إضافة صلاحيات دور الدعم
-            const supportRole = interaction.guild.roles.cache.get(settings.support_role_id);
-            if (supportRole) {
-                overwrites.push({ id: supportRole.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] });
-            }
-            const channelName = `ticket-${interaction.user.username}`;
-            const ticketChannel = await interaction.guild.channels.create({
-                name: channelName,
-                type: ChannelType.GuildText,
-                parent: category,
-                permissionOverwrites: overwrites,
-                topic: `Ticket for ${interaction.user.tag}`
-            });
-            db.prepare("INSERT INTO tickets (guild_id, channel_id, user_id, topic, status, created_at, category) VALUES (?, ?, ?, ?, 'open', datetime('now'), ?)")
-                .run(interaction.guild.id, ticketChannel.id, interaction.user.id, 'General support', 'General');
-            const embed = new EmbedBuilder()
-                .setTitle('🎫 Ticket Created')
-                .setDescription(`Hello ${interaction.user.tag}! Support team will assist you shortly.`)
-                .setColor(0x00BFFF)
-                .addFields(
-                    { name: '📌 Topic', value: 'General support', inline: true },
-                    { name: '👤 Created by', value: interaction.user.tag, inline: true }
-                )
-                .setFooter({ text: 'Click "Close Ticket" when done.' });
-            const row = new ActionRowBuilder()
-                .addComponents(
-                    new ButtonBuilder().setCustomId('close_ticket').setLabel('🔒 Close Ticket').setStyle(ButtonStyle.Danger)
-                );
-            await ticketChannel.send({ content: `<@${interaction.user.id}>`, embeds: [embed], components: [row] });
-            await interaction.reply({ content: `✅ Ticket created: ${ticketChannel}`, ephemeral: true });
-            logEvent(interaction.guild.id, 'ticket_open', `${interaction.user.tag} opened a ticket.`, 0x00BFFF);
+            db.prepare("UPDATE التذاكر SET الحالة = 'مغلقة' WHERE القناة = ?").run(تفاعل.channel.id);
+            await تفاعل.reply('🔒 سيتم حذف التذكرة خلال 5 ثوانٍ.');
+            setTimeout(() => تفاعل.channel.delete().catch(() => {}), 5000);
         }
-        if (interaction.customId === 'close_ticket') {
-            if (!interaction.channel.name.startsWith('ticket-')) {
-                return interaction.reply({ content: '❌ This is not a ticket channel.', ephemeral: true });
-            }
-            db.prepare("UPDATE tickets SET status = 'closed' WHERE channel_id = ?").run(interaction.channel.id);
-            await interaction.reply('🔒 Ticket will be deleted in 5 seconds.');
-            setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
+        if (تفاعل.customId === 'تولي_تذكرة') {
+            await تفاعل.reply({ content: '📌 تم تولي التذكرة.', ephemeral: true });
+            await تفاعل.channel.send(`📌 تم تولي التذكرة بواسطة ${تفاعل.user.tag}`);
         }
-        if (interaction.customId === 'verify_button') {
-            const row = db.prepare("SELECT role_id FROM verify_roles WHERE guild_id = ?").get(interaction.guild.id);
-            if (row) {
-                const role = interaction.guild.roles.cache.get(row.role_id);
-                if (role) {
-                    await interaction.member.roles.add(role);
-                    await interaction.reply({ content: `✅ Verified! You received the ${role.name} role.`, ephemeral: true });
+        if (تفاعل.customId === 'زر_التحقق') {
+            const صف = db.prepare("SELECT الدور FROM ادوار_التحقق WHERE السيرفر = ?").get(تفاعل.guild.id);
+            if (صف) {
+                const دور = تفاعل.guild.roles.cache.get(صف.الدور);
+                if (دور) {
+                    await تفاعل.member.roles.add(دور);
+                    await تفاعل.reply({ content: `✅ تم التحقق ومنحك دور ${دور.name}`, ephemeral: true });
                 }
             }
+        }
+    }
+
+    if (تفاعل.isStringSelectMenu()) {
+        if (تفاعل.customId === 'تذكرة_القائمة') {
+            const القسم = تفاعل.values[0];
+            const الموضوع = `طلب من القائمة - ${القسم}`;
+            const اعدادات = db.prepare("SELECT الفئة, دور_الدعم, قناة_السجلات FROM اعدادات_التذاكر WHERE السيرفر = ?").get(تفاعل.guild.id);
+            if (!اعدادات) {
+                return تفاعل.reply({ content: '❌ نظام التذاكر غير مضبوط.', ephemeral: true });
+            }
+            const فئة = تفاعل.guild.channels.cache.get(اعدادات.الفئة);
+            if (!فئة) {
+                return تفاعل.reply({ content: '❌ الفئة غير موجودة.', ephemeral: true });
+            }
+            const صلاحيات = [
+                { id: تفاعل.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+                { id: تفاعل.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
+                { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
+            ];
+            const دور_الدعم = تفاعل.guild.roles.cache.get(اعدادات.دور_الدعم);
+            if (دور_الدعم) {
+                صلاحيات.push({ id: دور_الدعم.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] });
+            }
+            const اسم_القناة = `تذكرة-${تفاعل.user.username}`;
+            const قناة_تذكرة = await تفاعل.guild.channels.create({
+                name: اسم_القناة,
+                type: ChannelType.GuildText,
+                parent: فئة,
+                permissionOverwrites: صلاحيات,
+                topic: `📌 ${القسم} - ${الموضوع}`
+            });
+            db.prepare("INSERT INTO التذاكر (السيرفر, القناة, المستخدم, الموضوع, الحالة, التاريخ, القسم, الاولوية) VALUES (?, ?, ?, ?, 'مفتوحة', datetime('now'), ?, 'عادية')")
+                .run(تفاعل.guild.id, قناة_تذكرة.id, تفاعل.user.id, الموضوع, القسم);
+            const ايمبد = new EmbedBuilder()
+                .setTitle('🎫 تذكرة جديدة')
+                .setDescription(`**الموضوع:** ${الموضوع}\n**القسم:** ${القسم}`)
+                .setColor(0x00BFFF)
+                .addFields(
+                    { name: 'أنشأها', value: تفاعل.user.tag, inline: true },
+                    { name: 'الحالة', value: '🟢 مفتوحة', inline: true }
+                );
+            const صف = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder().setCustomId('اغلاق_تذكرة').setLabel('🔒 إغلاق التذكرة').setStyle(ButtonStyle.Danger),
+                    new ButtonBuilder().setCustomId('تولي_تذكرة').setLabel('📌 تولي').setStyle(ButtonStyle.Primary)
+                );
+            await قناة_تذكرة.send({ content: `<@${تفاعل.user.id}>`, embeds: [ايمبد], components: [صف] });
+            await تفاعل.reply({ content: `✅ تم فتح تذكرة: ${قناة_تذكرة}`, ephemeral: true });
         }
     }
 });
 
 // ================== التذكيرات ==================
 setInterval(() => {
-    const now = Date.now();
-    const reminders = db.prepare("SELECT id, user_id, channel_id, message, remind_time, repeat_interval FROM reminders WHERE remind_time <= ?").all(String(now));
-    for (const row of reminders) {
-        const user = client.users.cache.get(row.user_id);
-        const channel = client.channels.cache.get(row.channel_id);
-        if (user) user.send(`⏰ Reminder: ${row.message}`).catch(() => {});
-        if (channel) channel.send(`⏰ <@${row.user_id}> Reminder: ${row.message}`).catch(() => {});
-        if (row.repeat_interval > 0) {
-            const newTime = now + row.repeat_interval * 1000;
-            db.prepare("UPDATE reminders SET remind_time = ? WHERE id = ?").run(String(newTime), row.id);
+    const الان = Date.now();
+    const تذكيرات = db.prepare("SELECT id, المستخدم, القناة, الرسالة, الوقت, التكرار FROM التذكيرات WHERE الوقت <= ?").all(String(الان));
+    for (const ت of تذكيرات) {
+        const مستخدم = client.users.cache.get(ت.المستخدم);
+        const قناة = client.channels.cache.get(ت.القناة);
+        if (مستخدم) مستخدم.send(`⏰ تذكير: ${ت.الرسالة}`).catch(() => {});
+        if (قناة) قناة.send(`⏰ <@${ت.المستخدم}> تذكير: ${ت.الرسالة}`).catch(() => {});
+        if (ت.التكرار > 0) {
+            const وقت_جديد = الان + ت.التكرار * 1000;
+            db.prepare("UPDATE التذكيرات SET الوقت = ? WHERE id = ?").run(String(وقت_جديد), ت.id);
         } else {
-            db.prepare("DELETE FROM reminders WHERE id = ?").run(row.id);
+            db.prepare("DELETE FROM التذكيرات WHERE id = ?").run(ت.id);
         }
     }
 }, 30000);
+
+// ================== إحصائيات الصوت ==================
+setInterval(() => {
+    client.guilds.cache.forEach(سيرفر => {
+        سيرفر.members.cache.forEach(عضو => {
+            if (عضو.voice.channel) {
+                تحديث_احصائية(عضو.id, سيرفر.id, 'الصوت', 1);
+            }
+        });
+    });
+}, 60000);
 
 // ================== تشغيل البوت ==================
 client.login(TOKEN);
