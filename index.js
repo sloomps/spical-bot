@@ -1,6 +1,7 @@
 // ================================================================
 // DISCORD BOT ULTIMATE - النسخة النهائية الجاهزة لـ Railway
 // يستخدم better-sqlite3 (بدون تجميع) ويعمل فوراً
+// يحتوي على جميع الأنظمة + أمر help الشامل
 // ================================================================
 
 const { Client, GatewayIntentBits, Partials, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionsBitField, ChannelType } = require('discord.js');
@@ -12,7 +13,6 @@ const moment = require('moment');
 // ================== قاعدة البيانات ==================
 const db = new Database('./ultimate_bot.db');
 
-// إنشاء الجداول
 db.exec(`
     CREATE TABLE IF NOT EXISTS economy (user_id TEXT, guild_id TEXT, balance INTEGER DEFAULT 0, bank INTEGER DEFAULT 0, daily TEXT, work TEXT, weekly TEXT, last_rob TEXT);
     CREATE TABLE IF NOT EXISTS levels (user_id TEXT, guild_id TEXT, xp INTEGER DEFAULT 0, level INTEGER DEFAULT 1);
@@ -95,7 +95,6 @@ function addXp(userId, guildId, amount) {
         xp -= needed;
         level++;
         needed = 5 * (level * level) + 50 * level + 100;
-        // منح دور المستوى
         const roles = db.prepare("SELECT role_id FROM level_roles WHERE guild_id = ? AND level = ?").all(guildId, level);
         const guild = client.guilds.cache.get(guildId);
         if (guild) {
@@ -1504,7 +1503,216 @@ client.on('messageCreate', async (message) => {
         await msg.react('✅');
         db.prepare("INSERT INTO contests (guild_id, channel_id, question, prize, status) VALUES (?, ?, ?, ?, 'active')").run(message.guild.id, message.channel.id, question, prize);
     }
-});
+
+    // ================== أمر المساعدة الشامل ==================
+    if (command === 'help' || command === 'h') {
+        const sub = args[0];
+        const embed = new EmbedBuilder()
+            .setTitle('📚 قائمة الأوامر - البوت الخارق')
+            .setDescription('إليك جميع الأوامر المتاحة، مقسمة حسب التصنيفات. استخدم `!help <اسم_الأمر>` للحصول على شرح تفصيلي.')
+            .setColor(0x00BFFF)
+            .setFooter({ text: `طلب بواسطة ${message.author.tag}`, iconURL: message.author.displayAvatarURL() });
+
+        if (sub) {
+            const commandInfo = {
+                'kick': 'طرد عضو من السيرفر (تحتاج صلاحية Kick Members)',
+                'ban': 'حظر عضو من السيرفر (تحتاج صلاحية Ban Members)',
+                'unban': 'رفع الحظر عن عضو',
+                'mute': 'كتم عضو لمدة محددة (بالثواني)',
+                'unmute': 'رفع الكتم عن عضو',
+                'warn': 'إصدار تحذير لعضو',
+                'warnings': 'عرض تحذيرات عضو',
+                'clearwarns': 'مسح جميع تحذيرات عضو (للمشرفين)',
+                'purge': 'حذف عدد معين من الرسائل (الحد الأقصى 100)',
+                'balance': 'عرض رصيدك أو رصيد عضو آخر',
+                'daily': 'الحصول على المكافأة اليومية',
+                'work': 'العمل لكسب عملات إضافية',
+                'rob': 'محاولة سرقة عملات من عضو آخر (مخاطرة)',
+                'slot': 'لعب ماكينة الحظ (رهان)',
+                'give': 'إعطاء عملات لعضو (للمشرفين)',
+                'shop': 'عرض المتجر',
+                'buy': 'شراء عنصر من المتجر',
+                'weekly': 'الحصول على المكافأة الأسبوعية',
+                'dailyreward': 'الحصول على مكافأة يومية إضافية',
+                'bank': 'إيداع/سحب من البنك، أو الحصول على قرض (استخدم !bank deposit/withdraw/loan)',
+                'invest': 'استثمار عملات لتحقيق أرباح',
+                'rank': 'عرض مستواك أو مستوى عضو آخر',
+                'leaderboard': 'عرض ترتيب المستويات في السيرفر',
+                'levelrole': 'ربط دور بمستوى معين (للمشرفين)',
+                'ticket': 'فتح تذكرة دعم جديدة',
+                'close': 'إغلاق التذكرة الحالية (للمشرفين)',
+                'setwelcome': 'تعيين قناة الترحيب ورسالتها (للمشرفين)',
+                'setgoodbye': 'تعيين قناة الوداع ورسالتها (للمشرفين)',
+                'setautorole': 'تعيين دور تلقائي للقادمين الجدد (للمشرفين)',
+                'setlog': 'تعيين قناة السجلات (للمشرفين)',
+                'addcmd': 'إضافة أمر مخصص جديد (للمشرفين)',
+                'delcmd': 'حذف أمر مخصص (للمشرفين)',
+                'cmds': 'عرض جميع الأوامر المخصصة في السيرفر',
+                'poll': 'إنشاء استطلاع تفاعلي',
+                'quickpoll': 'إنشاء تصويت سريع (👍/👎)',
+                'giveaway': 'بدء هدية جديدة (للمشرفين)',
+                'remind': 'تعيين تذكير بعد فترة زمنية',
+                'remindrepeat': 'تعيين تذكير متكرر كل فترة زمنية',
+                '8ball': 'اسأل كرة الحظ سؤالاً',
+                'roll': 'رمي نرد عشوائي',
+                'flip': 'قلب عملة (وجه / كتابة)',
+                'meme': 'جلب ميم عشوائي من الإنترنت',
+                'weather': 'عرض الطقس في مدينة معينة',
+                'news': 'عرض أهم الأخبار اليوم',
+                'hunt': 'اصطد حيواناً واحصل على عملات',
+                'card': 'احصل على بطاقة عشوائية نادرة',
+                'medal': 'احصل على وسمة عشوائية',
+                'horoscope': 'توقعات الأبراج اليومية',
+                'play': 'تشغيل أغنية من يوتيوب',
+                'stop': 'إيقاف الموسيقى ومسح القائمة',
+                'skip': 'تخطي الأغنية الحالية',
+                'queue': 'عرض قائمة التشغيل',
+                'marry': 'الزواج من عضو آخر',
+                'divorce': 'الطلاق من زوجك/زوجتك',
+                'married': 'عرض جميع الزيجات في السيرفر',
+                'clan': 'إدارة العشائر (إنشاء، معلومات، دعوة) - استخدم !clan create/info',
+                'farm': 'زراعة وحصاد المحاصيل (استخدم !farm plant/harvest)',
+                'jail': 'سجن عضو لمدة محددة (للمشرفين)',
+                'unjail': 'إطلاق سراح عضو مسجون (للمشرفين)',
+                'auction': 'إدارة المزادات (إنشاء، مزايدة، إنهاء) - استخدم !auction create/bid/end',
+                'title': 'تعيين أو عرض لقبك (استخدم !title set/show)',
+                'addauto': 'إضافة رد تلقائي لكلمة معينة (للمشرفين)',
+                'event': 'إنشاء أو عرض الأحداث (استخدم !event create/list)',
+                'color': 'تعيين لون مخصص لاسمك (بصيغة #RRGGBB)',
+                'randomcolor': 'تعيين لون عشوائي لاسمك',
+                'quest': 'إدارة المهام اليومية (استخدم !quest daily/claim)',
+                'achievement': 'منح أو عرض الإنجازات (استخدم !achievement unlock/list)',
+                'temprole': 'منح دور مؤقت لعضو (للمشرفين)',
+                'reactionrole': 'إدارة الأدوار التفاعلية (استخدم !reactionrole add/remove/list)',
+                'mystats': 'عرض إحصائياتك في السيرفر',
+                'topstats': 'عرض ترتيب الأعضاء حسب النشاط',
+                'advban': 'حظر عضو مع مدة زمنية تلقائية (للمشرفين)',
+                'unbanadv': 'رفع الحظر المتقدم عن عضو (للمشرفين)',
+                'joinreward': 'تعيين مكافأة لعند الانضمام (للمشرفين)',
+                'lottery': 'شراء تذكرة يانصيب أو سحب الجائزة (استخدم !lottery buy/draw)',
+                'trade': 'إرسال أو قبول طلبات التداول (استخدم !trade send/accept/reject/list)',
+                'tournament': 'إنشاء أو الانضمام إلى بطولات (استخدم !tournament create/join/draw)',
+                'raidmode': 'تفعيل وضع الحماية من الهجمات (للمشرفين)',
+                'userinfo': 'عرض معلومات مفصلة عن عضو',
+                'serverinfo': 'عرض معلومات عن السيرفر',
+                'ping': 'اختبار سرعة استجابة البوت',
+                'botinfo': 'عرض معلومات عن البوت',
+                'tempchannel': 'إنشاء قناة نصية مؤقتة (للمشرفين)',
+                'randomuser': 'اختيار عضو عشوائي من السيرفر',
+                'servertime': 'عرض الوقت الحالي للسيرفر',
+                'userid': 'عرض معرف عضو',
+                'channelid': 'عرض معرف القناة الحالية',
+                'votebutton': 'إنشاء تصويت بأزرار تفاعلية',
+                'profile': 'عرض ملف شخصي مختصر',
+                'join': 'دخول البوت إلى القناة الصوتية الخاصة بك',
+                'leave': 'خروج البوت من القناة الصوتية',
+                'blacklist': 'إدارة الكلمات المحظورة (للمشرفين)',
+                'notify': 'إرسال إشعار لجميع أعضاء السيرفر (للمشرفين)',
+                'activity': 'عرض عدد الأعضاء النشطين',
+                'calendar': 'عرض التاريخ الحالي',
+                'challenge': 'تحدي عشوائي لك',
+                'refer': 'إحالة عضو جديد والحصول على مكافأة',
+                'eval': 'تنفيذ كود JavaScript (للمالك فقط)',
+                'secret': 'أوامر سرية (للمالك فقط)',
+                'backup': 'إنشاء أو استعادة نسخة احتياطية (للمشرفين)',
+                'selfvc': 'تخصيص اسم قناة صوتية خاصة بك',
+                'contest': 'إنشاء مسابقة جديدة (للمشرفين)',
+                'invites': 'عرض الدعوات التي أنشأتها'
+            };
+
+            const info = commandInfo[sub];
+            if (info) {
+                const detailEmbed = new EmbedBuilder()
+                    .setTitle(`📖 شرح الأمر: !${sub}`)
+                    .setDescription(info)
+                    .setColor(0x00FF00)
+                    .addFields({ name: 'الاستخدام', value: `\`!${sub}\` أو \`!${sub} <معاملات>\``, inline: false })
+                    .setFooter({ text: 'استخدم !help لعرض جميع الأوامر' });
+                return message.channel.send({ embeds: [detailEmbed] });
+            } else {
+                return message.reply(`❌ لا يوجد أمر باسم **${sub}**. استخدم \`!help\` لعرض جميع الأوامر.`);
+            }
+        }
+
+        const categories = {
+            '🛠️ الإدارة': ['kick', 'ban', 'unban', 'mute', 'unmute', 'warn', 'warnings', 'clearwarns', 'purge', 'raidmode'],
+            '💰 الاقتصاد': ['balance', 'daily', 'work', 'rob', 'slot', 'give', 'shop', 'buy', 'weekly', 'dailyreward'],
+            '🏦 البنوك والاستثمارات': ['bank', 'invest'],
+            '📊 المستويات': ['rank', 'leaderboard', 'levelrole'],
+            '🎫 التذاكر': ['ticket', 'close'],
+            '🎵 الموسيقى': ['play', 'stop', 'skip', 'queue'],
+            '🎮 الألعاب': ['8ball', 'roll', 'flip', 'meme', 'weather', 'news', 'hunt', 'card', 'medal', 'horoscope'],
+            '🏴 العشائر': ['clan'],
+            '🌾 المزارع': ['farm'],
+            '🔒 السجون': ['jail', 'unjail'],
+            '🔨 المزادات': ['auction'],
+            '🏷️ الألقاب': ['title'],
+            '🤖 الردود التلقائية': ['addauto'],
+            '📅 الأحداث': ['event'],
+            '🎨 الألوان': ['color', 'randomcolor'],
+            '📋 المهام اليومية': ['quest'],
+            '🏅 الإنجازات': ['achievement'],
+            '⏳ الأدوار المؤقتة': ['temprole'],
+            '🔄 الأدوار التفاعلية': ['reactionrole'],
+            '📊 الإحصائيات': ['mystats', 'topstats'],
+            '🔨 الحظر المتقدم': ['advban', 'unbanadv'],
+            '🎁 مكافآت الانضمام': ['joinreward'],
+            '🎰 اليانصيب': ['lottery'],
+            '🤝 التداول': ['trade'],
+            '🏆 البطولات': ['tournament'],
+            '💬 الأوامر المخصصة': ['addcmd', 'delcmd', 'cmds'],
+            '📌 الاستطلاعات': ['poll', 'quickpoll'],
+            '🎁 الهدايا': ['giveaway'],
+            '⏰ التذكيرات': ['remind', 'remindrepeat'],
+            '📝 الترحيب والوداع': ['setwelcome', 'setgoodbye', 'setautorole'],
+            '📜 السجلات': ['setlog'],
+            '🛡️ الحماية': ['raidmode'],
+            'ℹ️ المعلومات': ['userinfo', 'serverinfo', 'ping', 'botinfo', 'profile'],
+            '➕ أوامر إضافية': ['tempchannel', 'randomuser', 'servertime', 'userid', 'channelid', 'votebutton', 'join', 'leave', 'blacklist', 'notify', 'activity', 'calendar', 'challenge', 'refer', 'selfvc', 'contest', 'invites', 'backup'],
+            '🔐 أوامر المالك': ['eval', 'secret']
+        };
+
+        let description = '';
+        for (const [category, commands] of Object.entries(categories)) {
+            const cmdList = commands.map(cmd => `\`!${cmd}\``).join(' ');
+            description += `**${category}**\n${cmdList}\n\n`;
+        }
+
+        embed.setDescription(description);
+        embed.addFields({ name: '📖 للحصول على شرح مفصل', value: 'استخدم `!help <اسم_الأمر>` لعرض شرح الأمر بالتفصيل.' });
+
+        if (description.length > 4000) {
+            let parts = [];
+            let currentPart = '';
+            for (const [category, commands] of Object.entries(categories)) {
+                const cmdList = commands.map(cmd => `\`!${cmd}\``).join(' ');
+                const block = `**${category}**\n${cmdList}\n\n`;
+                if (currentPart.length + block.length > 4000) {
+                    parts.push(currentPart);
+                    currentPart = block;
+                } else {
+                    currentPart += block;
+                }
+            }
+            if (currentPart) parts.push(currentPart);
+
+            const firstEmbed = new EmbedBuilder()
+                .setTitle('📚 قائمة الأوامر (الجزء 1)')
+                .setDescription(parts[0])
+                .setColor(0x00BFFF);
+            await message.channel.send({ embeds: [firstEmbed] });
+
+            for (let i = 1; i < parts.length; i++) {
+                await message.channel.send(`📚 **قائمة الأوامر (الجزء ${i + 1})**\n${parts[i]}`);
+            }
+
+            await message.channel.send('📖 استخدم `!help <اسم_الأمر>` للحصول على شرح مفصل.');
+        } else {
+            await message.channel.send({ embeds: [embed] });
+        }
+    }
+
+}); // نهاية messageCreate
 
 // ================== الأحداث ==================
 client.on('guildMemberAdd', async (member) => {
@@ -1558,7 +1766,6 @@ client.on('messageReactionAdd', async (reaction, user) => {
     if (reaction.message.author && !reaction.message.author.bot) {
         updateStat(reaction.message.author.id, reaction.message.guild.id, 'reactions_received', 1);
     }
-    // هدايا
     if (reaction.emoji.name === '🎉') {
         const row = db.prepare("SELECT id, entries FROM giveaways WHERE message_id = ?").get(reaction.message.id);
         if (row) {
@@ -1569,7 +1776,6 @@ client.on('messageReactionAdd', async (reaction, user) => {
             }
         }
     }
-    // أدوار تفاعلية
     const rr = db.prepare("SELECT role_id FROM reaction_roles WHERE guild_id = ? AND message_id = ? AND emoji = ?").get(reaction.message.guild.id, reaction.message.id, reaction.emoji.name);
     if (rr) {
         const member = reaction.message.guild.members.cache.get(user.id);
