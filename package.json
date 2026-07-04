@@ -1,21 +1,7 @@
-{
-  "name": "my-huge-bot",
-  "version": "1.0.0",
-  "description": "A comprehensive Discord bot with moderation, music, and ticket systems",
-  "main": "index.js",
-  "scripts": {
-    "start": "node index.js"
-  },
-  "dependencies": {
-    "@discordjs/voice": "^0.18.0",
-    "@distube/ytdl-core": "^4.15.9",
-    "discord.js": "^14.14.1",
-    "dotenv": "^16.4.5",
-    "ffmpeg-static": "^5.2.0",
-    "libsodium-wrappers": "^0.7.15",
-    "mongoose": "^8.2.0"
-  },
-  "engines": {
-    "node": ">=18.0.0"
-  }
+"dependencies": {
+  "better-sqlite3": "^9.2.2",
+  "discord.js": "^14.14.1",
+  "ytdl-core": "^4.11.5",
+  "axios": "^1.6.2",
+  "moment": "^2.29.4"
 }
