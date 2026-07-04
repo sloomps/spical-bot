@@ -1,7 +1,7 @@
 {
-  "name": "ultimate-discord-bot",
-  "version": "3.0.0",
-  "description": "Ultimate Discord Bot - Global Edition",
+  "name": "bot-arabic-ultimate",
+  "version": "4.0.0",
+  "description": "بوت ديسكورد عربي خارق - أنظمة متطورة",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
