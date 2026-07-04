@@ -1,7 +1,7 @@
 {
-  "name": "bot-arabic-ultimate",
-  "version": "4.0.0",
-  "description": "بوت ديسكورد عربي خارق - أنظمة متطورة",
+  "name": "ultimate-bot-arabic",
+  "version": "5.0.0",
+  "description": "البوت العربي الخارق - النسخة النهائية المتكاملة",
   "main": "index.js",
   "scripts": {
     "start": "node index.js"
@@ -10,7 +10,8 @@
     "discord.js": "^14.14.1",
     "better-sqlite3": "^9.2.2",
     "axios": "^1.6.2",
-    "moment": "^2.29.4"
+    "moment": "^2.29.4",
+    "ytdl-core": "^4.11.5"
   },
   "engines": {
     "node": ">=18.0.0"
