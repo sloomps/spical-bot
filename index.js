@@ -1,64 +1,37 @@
 // ================================================================
-// DISCORD BOT ULTIMATE - النسخة النهائية الجاهزة لـ Railway
-// يستخدم better-sqlite3 (بدون تجميع) ويعمل فوراً
-// يحتوي على جميع الأنظمة + أمر help الشامل
+// DISCORD BOT ULTIMATE - إصدار Slash Commands المتطور
+// جميع الأوامر شرطية (/) - لغة عربية - أنظمة متكاملة
 // ================================================================
 
-const { Client, GatewayIntentBits, Partials, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionsBitField, ChannelType } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, PermissionsBitField, ChannelType, SlashCommandBuilder, REST, Routes, Collection, Events } = require('discord.js');
 const Database = require('better-sqlite3');
-const ytdl = require('ytdl-core');
 const axios = require('axios');
 const moment = require('moment');
+const fs = require('fs');
+const path = require('path');
 
 // ================== قاعدة البيانات ==================
 const db = new Database('./ultimate_bot.db');
 
 db.exec(`
-    CREATE TABLE IF NOT EXISTS economy (user_id TEXT, guild_id TEXT, balance INTEGER DEFAULT 0, bank INTEGER DEFAULT 0, daily TEXT, work TEXT, weekly TEXT, last_rob TEXT);
+    CREATE TABLE IF NOT EXISTS economy (user_id TEXT, guild_id TEXT, balance INTEGER DEFAULT 0, bank INTEGER DEFAULT 0, daily TEXT, work TEXT, weekly TEXT);
     CREATE TABLE IF NOT EXISTS levels (user_id TEXT, guild_id TEXT, xp INTEGER DEFAULT 0, level INTEGER DEFAULT 1);
     CREATE TABLE IF NOT EXISTS warnings (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, guild_id TEXT, reason TEXT, date TEXT);
     CREATE TABLE IF NOT EXISTS autoroles (guild_id TEXT, role_id TEXT);
-    CREATE TABLE IF NOT EXISTS welcome (guild_id TEXT, channel_id TEXT, message TEXT);
-    CREATE TABLE IF NOT EXISTS goodbye (guild_id TEXT, channel_id TEXT, message TEXT);
-    CREATE TABLE IF NOT EXISTS custom_commands (guild_id TEXT, name TEXT, response TEXT, PRIMARY KEY (guild_id, name));
-    CREATE TABLE IF NOT EXISTS tickets (id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT, channel_id TEXT, user_id TEXT, topic TEXT, status TEXT, created_at TEXT);
+    CREATE TABLE IF NOT EXISTS welcome (guild_id TEXT, channel_id TEXT, message TEXT, image_url TEXT);
+    CREATE TABLE IF NOT EXISTS goodbye (guild_id TEXT, channel_id TEXT, message TEXT, image_url TEXT);
+    CREATE TABLE IF NOT EXISTS tickets (id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT, channel_id TEXT, user_id TEXT, topic TEXT, status TEXT, created_at TEXT, category TEXT, priority TEXT);
     CREATE TABLE IF NOT EXISTS logging (guild_id TEXT, channel_id TEXT, type TEXT);
-    CREATE TABLE IF NOT EXISTS giveaways (id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT, channel_id TEXT, message_id TEXT, prize TEXT, end_time TEXT, winners INTEGER, entries TEXT);
-    CREATE TABLE IF NOT EXISTS reminders (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, channel_id TEXT, message TEXT, remind_time TEXT, repeat_interval INTEGER DEFAULT 0);
-    CREATE TABLE IF NOT EXISTS marriages (user1 TEXT, user2 TEXT, guild_id TEXT, PRIMARY KEY (user1, user2));
-    CREATE TABLE IF NOT EXISTS level_roles (guild_id TEXT, level INTEGER, role_id TEXT);
-    CREATE TABLE IF NOT EXISTS polls (id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT, channel_id TEXT, message_id TEXT, question TEXT, options TEXT);
-    CREATE TABLE IF NOT EXISTS clans (id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT, name TEXT, owner TEXT, members TEXT, level INTEGER DEFAULT 1, xp INTEGER DEFAULT 0, created_at TEXT);
-    CREATE TABLE IF NOT EXISTS farms (user_id TEXT, guild_id TEXT, crop TEXT, planted_at TEXT, ready_at TEXT, status TEXT DEFAULT 'growing');
-    CREATE TABLE IF NOT EXISTS prisons (user_id TEXT, guild_id TEXT, jailed_at TEXT, release_at TEXT, reason TEXT);
-    CREATE TABLE IF NOT EXISTS loans (user_id TEXT, guild_id TEXT, amount INTEGER, interest INTEGER, due_date TEXT, status TEXT DEFAULT 'active');
-    CREATE TABLE IF NOT EXISTS investments (user_id TEXT, guild_id TEXT, amount INTEGER, profit INTEGER, start_date TEXT, end_date TEXT, status TEXT DEFAULT 'active');
-    CREATE TABLE IF NOT EXISTS auctions (id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT, item TEXT, seller TEXT, starting_bid INTEGER, current_bid INTEGER, bidder TEXT, end_time TEXT, status TEXT DEFAULT 'active');
-    CREATE TABLE IF NOT EXISTS titles (user_id TEXT, guild_id TEXT, title TEXT, PRIMARY KEY (user_id, guild_id));
-    CREATE TABLE IF NOT EXISTS auto_responders (guild_id TEXT, trigger TEXT, response TEXT, PRIMARY KEY (guild_id, trigger));
-    CREATE TABLE IF NOT EXISTS temp_vc (guild_id TEXT, channel_id TEXT, owner_id TEXT, created_at TEXT);
-    CREATE TABLE IF NOT EXISTS contests (id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT, channel_id TEXT, question TEXT, prize INTEGER, answer TEXT, winner TEXT, status TEXT DEFAULT 'active');
-    CREATE TABLE IF NOT EXISTS referrals (user_id TEXT, guild_id TEXT, referred_by TEXT, reward_claimed INTEGER DEFAULT 0);
-    CREATE TABLE IF NOT EXISTS cards (user_id TEXT, guild_id TEXT, card_type TEXT, rarity TEXT, acquired_at TEXT);
-    CREATE TABLE IF NOT EXISTS bad_words (guild_id TEXT, word TEXT, PRIMARY KEY (guild_id, word));
-    CREATE TABLE IF NOT EXISTS invites (user_id TEXT, guild_id TEXT, inviter_id TEXT, code TEXT, uses INTEGER DEFAULT 0);
-    CREATE TABLE IF NOT EXISTS events (id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT, name TEXT, description TEXT, date TEXT, channel_id TEXT, created_by TEXT);
-    CREATE TABLE IF NOT EXISTS backups (guild_id TEXT, data TEXT, created_at TEXT);
-    CREATE TABLE IF NOT EXISTS custom_colors (user_id TEXT, guild_id TEXT, color_hex TEXT, PRIMARY KEY (user_id, guild_id));
-    CREATE TABLE IF NOT EXISTS quests (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT, guild_id TEXT, name TEXT, description TEXT, reward INTEGER, type TEXT, target INTEGER, progress INTEGER DEFAULT 0, status TEXT DEFAULT 'active', date TEXT);
     CREATE TABLE IF NOT EXISTS reaction_roles (id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT, message_id TEXT, role_id TEXT, emoji TEXT);
-    CREATE TABLE IF NOT EXISTS member_stats (user_id TEXT, guild_id TEXT, messages INTEGER DEFAULT 0, voice_minutes INTEGER DEFAULT 0, reactions_given INTEGER DEFAULT 0, reactions_received INTEGER DEFAULT 0, xp_earned INTEGER DEFAULT 0);
-    CREATE TABLE IF NOT EXISTS advanced_bans (user_id TEXT, guild_id TEXT, reason TEXT, duration INTEGER, banned_at TEXT, UNIQUE(user_id, guild_id));
-    CREATE TABLE IF NOT EXISTS join_rewards (guild_id TEXT, role_id TEXT, reward_amount INTEGER);
-    CREATE TABLE IF NOT EXISTS self_channels (guild_id TEXT, channel_id TEXT, owner_id TEXT, created_at TEXT);
-    CREATE TABLE IF NOT EXISTS lottery (id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT, ticket_owner TEXT, ticket_number INTEGER, prize_amount INTEGER, draw_date TEXT, status TEXT DEFAULT 'active');
-    CREATE TABLE IF NOT EXISTS trades (id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT, sender_id TEXT, receiver_id TEXT, amount INTEGER, status TEXT DEFAULT 'pending', created_at TEXT);
-    CREATE TABLE IF NOT EXISTS tournaments (id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT, name TEXT, prize INTEGER, participants TEXT, status TEXT DEFAULT 'active', created_at TEXT);
-    CREATE TABLE IF NOT EXISTS achievements (user_id TEXT, guild_id TEXT, achievement_name TEXT, unlocked_at TEXT, PRIMARY KEY (user_id, guild_id, achievement_name));
-    CREATE TABLE IF NOT EXISTS temp_roles (user_id TEXT, guild_id TEXT, role_id TEXT, expiry_time TEXT);
+    CREATE TABLE IF NOT EXISTS member_stats (user_id TEXT, guild_id TEXT, messages INTEGER DEFAULT 0, voice_minutes INTEGER DEFAULT 0);
+    CREATE TABLE IF NOT EXISTS warnings_system (user_id TEXT, guild_id TEXT, reason TEXT, date TEXT, moderator TEXT);
+    CREATE TABLE IF NOT EXISTS mute_roles (guild_id TEXT, role_id TEXT);
+    CREATE TABLE IF NOT EXISTS verify_roles (guild_id TEXT, role_id TEXT, channel_id TEXT);
+    CREATE TABLE IF NOT EXISTS auto_mod (guild_id TEXT, spam_threshold INTEGER DEFAULT 5, invite_filter INTEGER DEFAULT 1, link_filter INTEGER DEFAULT 1);
+    CREATE TABLE IF NOT EXISTS temp_channels (guild_id TEXT, category_id TEXT, channel_id TEXT, owner_id TEXT, created_at TEXT);
 `);
 
-// ================== العمليات على قاعدة البيانات ==================
+// ================== دوال مساعدة ==================
 function getBalance(userId, guildId) {
     const row = db.prepare("SELECT balance FROM economy WHERE user_id = ? AND guild_id = ?").get(userId, guildId);
     return row ? row.balance : 0;
@@ -95,52 +68,41 @@ function addXp(userId, guildId, amount) {
         xp -= needed;
         level++;
         needed = 5 * (level * level) + 50 * level + 100;
-        const roles = db.prepare("SELECT role_id FROM level_roles WHERE guild_id = ? AND level = ?").all(guildId, level);
-        const guild = client.guilds.cache.get(guildId);
-        if (guild) {
-            const member = guild.members.cache.get(userId);
-            if (member) {
-                roles.forEach(r => member.roles.add(r.role_id).catch(() => {}));
-            }
-        }
     }
     db.prepare("UPDATE levels SET xp = ?, level = ? WHERE user_id = ? AND guild_id = ?").run(xp, level, userId, guildId);
 }
 
-function getWarnings(userId) {
-    return db.prepare("SELECT reason, date FROM warnings WHERE user_id = ?").all(userId);
+function addWarning(userId, guildId, reason, moderator) {
+    db.prepare("INSERT INTO warnings_system (user_id, guild_id, reason, date, moderator) VALUES (?, ?, ?, datetime('now'), ?)").run(userId, guildId, reason, moderator);
+    const count = db.prepare("SELECT COUNT(*) FROM warnings_system WHERE user_id = ? AND guild_id = ?").get(userId, guildId);
+    return count['COUNT(*)'];
 }
 
-function addWarning(userId, guildId, reason) {
-    db.prepare("INSERT INTO warnings (user_id, guild_id, reason, date) VALUES (?, ?, ?, datetime('now'))").run(userId, guildId, reason);
+function getWarnings(userId, guildId) {
+    return db.prepare("SELECT reason, date, moderator FROM warnings_system WHERE user_id = ? AND guild_id = ?").all(userId, guildId);
 }
 
-function clearWarnings(userId) {
-    db.prepare("DELETE FROM warnings WHERE user_id = ?").run(userId);
+function clearWarnings(userId, guildId) {
+    db.prepare("DELETE FROM warnings_system WHERE user_id = ? AND guild_id = ?").run(userId, guildId);
 }
 
-function logEvent(guildId, type, description) {
-    const row = db.prepare("SELECT channel_id FROM logging WHERE guild_id = ? AND (type = ? OR type = 'all')").get(guildId, type);
-    if (row) {
-        const channel = client.channels.cache.get(row.channel_id);
+function logEvent(guildId, type, description, color = 0x2F3136) {
+    const row = db.prepare("SELECT channel_id FROM logging WHERE guild_id = ? AND type = ?").get(guildId, type);
+    if (!row) {
+        const all = db.prepare("SELECT channel_id FROM logging WHERE guild_id = ? AND type = 'all'").get(guildId);
+        if (!all) return;
+        const channel = client.channels.cache.get(all.channel_id);
         if (channel) {
-            const embed = new EmbedBuilder().setTitle(`📋 ${type}`).setDescription(description).setColor(0x2F3136).setTimestamp();
+            const embed = new EmbedBuilder().setTitle(`📋 ${type}`).setDescription(description).setColor(color).setTimestamp();
             channel.send({ embeds: [embed] }).catch(() => {});
         }
+        return;
     }
-}
-
-function getUserStats(userId, guildId) {
-    let row = db.prepare("SELECT * FROM member_stats WHERE user_id = ? AND guild_id = ?").get(userId, guildId);
-    if (!row) {
-        db.prepare("INSERT INTO member_stats (user_id, guild_id, messages, voice_minutes, reactions_given, reactions_received, xp_earned) VALUES (?, ?, 0, 0, 0, 0, 0)").run(userId, guildId);
-        row = db.prepare("SELECT * FROM member_stats WHERE user_id = ? AND guild_id = ?").get(userId, guildId);
+    const channel = client.channels.cache.get(row.channel_id);
+    if (channel) {
+        const embed = new EmbedBuilder().setTitle(`📋 ${type}`).setDescription(description).setColor(color).setTimestamp();
+        channel.send({ embeds: [embed] }).catch(() => {});
     }
-    return row;
-}
-
-function updateStat(userId, guildId, field, increment = 1) {
-    db.prepare(`UPDATE member_stats SET ${field} = ${field} + ? WHERE user_id = ? AND guild_id = ?`).run(increment, userId, guildId);
 }
 
 // ================== إعدادات العميل ==================
@@ -154,632 +116,859 @@ const client = new Client({
         GatewayIntentBits.GuildVoiceStates,
         GatewayIntentBits.GuildMessageReactions,
         GatewayIntentBits.DirectMessages,
+        GatewayIntentBits.GuildPresences,
     ],
-    partials: [Partials.Channel, Partials.Message, Partials.User, Partials.GuildMember]
+    partials: [Partials.Channel, Partials.Message, Partials.User, Partials.GuildMember, Partials.Reaction]
 });
 
-const PREFIX = '!';
 const TOKEN = process.env.TOKEN;
-
 if (!TOKEN) {
     console.error('❌ TOKEN environment variable not set.');
     process.exit(1);
 }
 
-// ================== متغيرات الموسيقى ==================
-const queues = new Map();
+// ================== كائن الأوامر ==================
+const commands = [];
 
-// ================== حدث ready ==================
-client.once('ready', () => {
+// ================== تعريف الأوامر ==================
+
+// ---- أمر المساعدة ----
+commands.push(new SlashCommandBuilder()
+    .setName('مساعدة')
+    .setDescription('عرض جميع الأوامر المتاحة مع شرح مفصل')
+    .addStringOption(option => option.setName('الأمر').setDescription('اسم الأمر للحصول على شرح تفصيلي').setRequired(false))
+);
+
+// ---- أمر المعلومات ----
+commands.push(new SlashCommandBuilder()
+    .setName('معلومات')
+    .setDescription('عرض معلومات عن البوت أو السيرفر أو العضو')
+    .addStringOption(option => option.setName('النوع').setDescription('نوع المعلومات').setRequired(true).addChoices(
+        { name: 'البوت', value: 'bot' },
+        { name: 'السيرفر', value: 'server' },
+        { name: 'عضو', value: 'user' }
+    ))
+    .addUserOption(option => option.setName('العضو').setDescription('العضو المطلوب معلوماته').setRequired(false))
+);
+
+// ---- أمر الاقتصاد ----
+commands.push(new SlashCommandBuilder()
+    .setName('اقتصاد')
+    .setDescription('إدارة رصيدك وعملاتك')
+    .addSubcommand(sub => sub.setName('رصيد').setDescription('عرض رصيدك').addUserOption(opt => opt.setName('عضو').setDescription('عرض رصيد عضو آخر').setRequired(false)))
+    .addSubcommand(sub => sub.setName('يومي').setDescription('الحصول على المكافأة اليومية'))
+    .addSubcommand(sub => sub.setName('عمل').setDescription('العمل لكسب عملات إضافية'))
+    .addSubcommand(sub => sub.setName('سرقة').setDescription('محاولة سرقة عملات من عضو آخر').addUserOption(opt => opt.setName('عضو').setDescription('العضو المراد سرقته').setRequired(true)))
+    .addSubcommand(sub => sub.setName('حظ').setDescription('لعب ماكينة الحظ').addIntegerOption(opt => opt.setName('رهان').setDescription('مبلغ الرهان').setRequired(false)))
+    .addSubcommand(sub => sub.setName('متجر').setDescription('عرض المتجر'))
+    .addSubcommand(sub => sub.setName('شراء').setDescription('شراء عنصر من المتجر').addStringOption(opt => opt.setName('العنصر').setDescription('العنصر المراد شراؤه').setRequired(true).addChoices(
+        { name: 'هدية', value: 'هدية' },
+        { name: 'نجمة', value: 'نجمة' },
+        { name: 'تاج', value: 'تاج' }
+    )))
+);
+
+// ---- أمر المستويات ----
+commands.push(new SlashCommandBuilder()
+    .setName('مستوى')
+    .setDescription('عرض مستواك أو ترتيب المتصدرين')
+    .addSubcommand(sub => sub.setName('رتبتي').setDescription('عرض مستواك').addUserOption(opt => opt.setName('عضو').setDescription('عضو آخر').setRequired(false)))
+    .addSubcommand(sub => sub.setName('المتصدرين').setDescription('عرض لوحة المتصدرين'))
+);
+
+// ---- أمر الإدارة ----
+commands.push(new SlashCommandBuilder()
+    .setName('إدارة')
+    .setDescription('أوامر إدارة السيرفر')
+    .addSubcommand(sub => sub.setName('طرد').setDescription('طرد عضو من السيرفر').addUserOption(opt => opt.setName('عضو').setDescription('العضو').setRequired(true)).addStringOption(opt => opt.setName('سبب').setDescription('سبب الطرد').setRequired(false)))
+    .addSubcommand(sub => sub.setName('حظر').setDescription('حظر عضو من السيرفر').addUserOption(opt => opt.setName('عضو').setDescription('العضو').setRequired(true)).addStringOption(opt => opt.setName('سبب').setDescription('سبب الحظر').setRequired(false)))
+    .addSubcommand(sub => sub.setName('رفع_حظر').setDescription('رفع الحظر عن عضو').addStringOption(opt => opt.setName('اسم').setDescription('اسم العضو أو المعرف').setRequired(true)))
+    .addSubcommand(sub => sub.setName('كتم').setDescription('كتم عضو').addUserOption(opt => opt.setName('عضو').setDescription('العضو').setRequired(true)).addIntegerOption(opt => opt.setName('مدة').setDescription('المدة بالثواني').setRequired(true)).addStringOption(opt => opt.setName('سبب').setDescription('السبب').setRequired(false)))
+    .addSubcommand(sub => sub.setName('رفع_كتم').setDescription('رفع الكتم عن عضو').addUserOption(opt => opt.setName('عضو').setDescription('العضو').setRequired(true)))
+    .addSubcommand(sub => sub.setName('تحذير').setDescription('تحذير عضو').addUserOption(opt => opt.setName('عضو').setDescription('العضو').setRequired(true)).addStringOption(opt => opt.setName('سبب').setDescription('سبب التحذير').setRequired(false)))
+    .addSubcommand(sub => sub.setName('تحذيرات').setDescription('عرض تحذيرات عضو').addUserOption(opt => opt.setName('عضو').setDescription('العضو').setRequired(true)))
+    .addSubcommand(sub => sub.setName('مسح_تحذيرات').setDescription('مسح تحذيرات عضو').addUserOption(opt => opt.setName('عضو').setDescription('العضو').setRequired(true)))
+    .addSubcommand(sub => sub.setName('مسح').setDescription('حذف عدد من الرسائل').addIntegerOption(opt => opt.setName('عدد').setDescription('عدد الرسائل (حد أقصى 100)').setRequired(true).setMinValue(1).setMaxValue(100)))
+);
+
+// ---- أمر التذاكر ----
+commands.push(new SlashCommandBuilder()
+    .setName('تذكرة')
+    .setDescription('إدارة تذاكر الدعم')
+    .addSubcommand(sub => sub.setName('فتح').setDescription('فتح تذكرة جديدة').addStringOption(opt => opt.setName('الموضوع').setDescription('موضوع التذكرة').setRequired(true)).addStringOption(opt => opt.setName('القسم').setDescription('قسم التذكرة').setRequired(true).addChoices(
+        { name: 'دعم فني', value: 'دعم فني' },
+        { name: 'شكوى', value: 'شكوى' },
+        { name: 'اقتراح', value: 'اقتراح' },
+        { name: 'طلب عضوية', value: 'طلب عضوية' },
+        { name: 'أخرى', value: 'أخرى' }
+    )))
+    .addSubcommand(sub => sub.setName('إغلاق').setDescription('إغلاق التذكرة الحالية'))
+    .addSubcommand(sub => sub.setName('لوحة').setDescription('إنشاء لوحة تحكم التذاكر'))
+);
+
+// ---- أمر الترحيب ----
+commands.push(new SlashCommandBuilder()
+    .setName('ترحيب')
+    .setDescription('إعدادات الترحيب')
+    .addSubcommand(sub => sub.setName('تعيين').setDescription('تعيين قناة الترحيب').addChannelOption(opt => opt.setName('قناة').setDescription('القناة').setRequired(true)).addStringOption(opt => opt.setName('رسالة').setDescription('رسالة الترحيب (استخدم {user} و {server})').setRequired(false)).addAttachmentOption(opt => opt.setName('صورة').setDescription('صورة للترحيب').setRequired(false)))
+    .addSubcommand(sub => sub.setName('تعيين_وداع').setDescription('تعيين قناة الوداع').addChannelOption(opt => opt.setName('قناة').setDescription('القناة').setRequired(true)).addStringOption(opt => opt.setName('رسالة').setDescription('رسالة الوداع (استخدم {user} و {server})').setRequired(false)).addAttachmentOption(opt => opt.setName('صورة').setDescription('صورة للوداع').setRequired(false)))
+);
+
+// ---- أمر الحماية ----
+commands.push(new SlashCommandBuilder()
+    .setName('حماية')
+    .setDescription('إعدادات الحماية')
+    .addSubcommand(sub => sub.setName('تفعيل').setDescription('تفعيل وضع الحماية').addIntegerOption(opt => opt.setName('المستوى').setDescription('مستوى الحماية 1-3').setRequired(true).setMinValue(1).setMaxValue(3)))
+    .addSubcommand(sub => sub.setName('تعيين_دور_كتم').setDescription('تعيين دور الكتم').addRoleOption(opt => opt.setName('دور').setDescription('دور الكتم').setRequired(true)))
+    .addSubcommand(sub => sub.setName('تعيين_دور_تحقق').setDescription('تعيين دور التحقق').addRoleOption(opt => opt.setName('دور').setDescription('دور التحقق').setRequired(true)).addChannelOption(opt => opt.setName('قناة').setDescription('قناة التحقق').setRequired(true)))
+    .addSubcommand(sub => sub.setName('إعدادات_سبام').setDescription('تعيين حدود السبام').addIntegerOption(opt => opt.setName('الحد').setDescription('عدد الرسائل المسموح بها في 5 ثوانٍ').setRequired(true).setMinValue(3).setMaxValue(20)))
+);
+
+// ---- أمر السجلات ----
+commands.push(new SlashCommandBuilder()
+    .setName('سجلات')
+    .setDescription('إعدادات سجلات السيرفر')
+    .addSubcommand(sub => sub.setName('تعيين').setDescription('تعيين قناة السجلات').addChannelOption(opt => opt.setName('قناة').setDescription('القناة').setRequired(true)).addStringOption(opt => opt.setName('النوع').setDescription('نوع السجلات').setRequired(true).addChoices(
+        { name: 'الكل', value: 'all' },
+        { name: 'عضوية', value: 'member' },
+        { name: 'رسائل', value: 'message' },
+        { name: 'إدارة', value: 'mod' },
+        { name: 'تذاكر', value: 'ticket' }
+    )))
+);
+
+// ---- أمر الأدوار ----
+commands.push(new SlashCommandBuilder()
+    .setName('أدوار')
+    .setDescription('إدارة الأدوار')
+    .addSubcommand(sub => sub.setName('تعيين_تلقائي').setDescription('تعيين دور تلقائي للقادمين الجدد').addRoleOption(opt => opt.setName('دور').setDescription('الدور').setRequired(true)))
+    .addSubcommand(sub => sub.setName('تفاعلي').setDescription('تعيين دور تفاعلي').addStringOption(opt => opt.setName('رسالة').setDescription('معرف الرسالة').setRequired(true)).addRoleOption(opt => opt.setName('دور').setDescription('الدور').setRequired(true)).addStringOption(opt => opt.setName('إيموجي').setDescription('الإيموجي').setRequired(true)))
+    .addSubcommand(sub => sub.setName('قائمة').setDescription('عرض الأدوار التفاعلية'))
+);
+
+// ---- أمر التذكيرات ----
+commands.push(new SlashCommandBuilder()
+    .setName('تذكير')
+    .setDescription('تعيين تذكير')
+    .addSubcommand(sub => sub.setName('تعيين').setDescription('تعيين تذكير').addIntegerOption(opt => opt.setName('مدة').setDescription('المدة بالثواني').setRequired(true)).addStringOption(opt => opt.setName('رسالة').setDescription('رسالة التذكير').setRequired(true)))
+    .addSubcommand(sub => sub.setName('متكرر').setDescription('تعيين تذكير متكرر').addIntegerOption(opt => opt.setName('مدة').setDescription('المدة بالثواني بين كل تذكير').setRequired(true)).addStringOption(opt => opt.setName('رسالة').setDescription('رسالة التذكير').setRequired(true)))
+);
+
+// ---- أمر الألعاب ----
+commands.push(new SlashCommandBuilder()
+    .setName('لعبة')
+    .setDescription('ألعاب متنوعة')
+    .addSubcommand(sub => sub.setName('حظ').setDescription('اسأل كرة الحظ').addStringOption(opt => opt.setName('سؤال').setDescription('سؤالك').setRequired(true)))
+    .addSubcommand(sub => sub.setName('نرد').setDescription('رمي النرد').addIntegerOption(opt => opt.setName('أقصى').setDescription('أقصى رقم').setRequired(false)))
+    .addSubcommand(sub => sub.setName('عملة').setDescription('قلب العملة'))
+    .addSubcommand(sub => sub.setName('ميم').setDescription('جلب ميم عشوائي'))
+    .addSubcommand(sub => sub.setName('طقس').setDescription('الطقس في مدينة').addStringOption(opt => opt.setName('مدينة').setDescription('اسم المدينة').setRequired(true)))
+);
+
+// ---- أمر العشائر ----
+commands.push(new SlashCommandBuilder()
+    .setName('عشيرة')
+    .setDescription('إدارة العشائر')
+    .addSubcommand(sub => sub.setName('إنشاء').setDescription('إنشاء عشيرة جديدة').addStringOption(opt => opt.setName('الاسم').setDescription('اسم العشيرة').setRequired(true)))
+    .addSubcommand(sub => sub.setName('معلومات').setDescription('عرض معلومات عشيرة').addStringOption(opt => opt.setName('الاسم').setDescription('اسم العشيرة').setRequired(true)))
+);
+
+// ---- أمر الزراعة ----
+commands.push(new SlashCommandBuilder()
+    .setName('مزرعة')
+    .setDescription('إدارة المزرعة')
+    .addSubcommand(sub => sub.setName('زرع').setDescription('زراعة محصول').addStringOption(opt => opt.setName('محصول').setDescription('نوع المحصول').setRequired(true).addChoices(
+        { name: 'قمح', value: 'قمح' },
+        { name: 'ذرة', value: 'ذرة' },
+        { name: 'طماطم', value: 'طماطم' },
+        { name: 'بطاطس', value: 'بطاطس' }
+    )))
+    .addSubcommand(sub => sub.setName('حصاد').setDescription('حصاد المحصول'))
+);
+
+// ---- أمر المزادات ----
+commands.push(new SlashCommandBuilder()
+    .setName('مزاد')
+    .setDescription('إدارة المزادات')
+    .addSubcommand(sub => sub.setName('إنشاء').setDescription('إنشاء مزاد جديد').addStringOption(opt => opt.setName('عنصر').setDescription('العنصر المعروض').setRequired(true)).addIntegerOption(opt => opt.setName('سعر_بدء').setDescription('سعر البداية').setRequired(true)))
+    .addSubcommand(sub => sub.setName('مزايدة').setDescription('المزايدة على عنصر').addIntegerOption(opt => opt.setName('معرف').setDescription('معرف المزاد').setRequired(true)).addIntegerOption(opt => opt.setName('مبلغ').setDescription('مبلغ المزايدة').setRequired(true)))
+);
+
+// ---- أمر المالك ----
+commands.push(new SlashCommandBuilder()
+    .setName('مالك')
+    .setDescription('أوامر المالك (مقيدة)')
+    .addSubcommand(sub => sub.setName('تقييم').setDescription('تنفيذ كود JavaScript').addStringOption(opt => opt.setName('كود').setDescription('الكود المراد تنفيذه').setRequired(true)))
+    .addSubcommand(sub => sub.setName('إعادة_تحميل').setDescription('إعادة تحميل الأوامر'))
+);
+
+// ================== تسجيل الأوامر ==================
+const rest = new REST({ version: '10' }).setToken(TOKEN);
+
+async function registerCommands() {
+    try {
+        console.log('🔄 جاري تسجيل الأوامر...');
+        await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
+        console.log('✅ تم تسجيل الأوامر بنجاح!');
+    } catch (error) {
+        console.error('❌ فشل تسجيل الأوامر:', error);
+    }
+}
+
+// ================== إنشاء البوت ==================
+client.once('ready', async () => {
     console.log(`✅ Bot logged in as ${client.user.tag}`);
+    await registerCommands();
 });
 
-// ================== حدث الرسائل ==================
-client.on('messageCreate', async (message) => {
-    if (message.author.bot || !message.guild) return;
+// ================== معالجة الأوامر ==================
+client.on(Events.InteractionCreate, async (interaction) => {
+    if (!interaction.isChatInputCommand()) return;
 
-    // الأوامر المخصصة
-    if (message.content.startsWith(PREFIX)) {
-        const cmdName = message.content.slice(PREFIX.length).split(' ')[0].toLowerCase();
-        const row = db.prepare("SELECT response FROM custom_commands WHERE guild_id = ? AND name = ?").get(message.guild.id, cmdName);
-        if (row) message.channel.send(row.response);
-    }
+    const { commandName, options, user, guild, member, channel } = interaction;
+    await interaction.deferReply({ ephemeral: false }).catch(() => {});
 
-    // كلمات محظورة
-    const badWords = db.prepare("SELECT word FROM bad_words WHERE guild_id = ?").all(message.guild.id);
-    for (const bw of badWords) {
-        if (message.content.toLowerCase().includes(bw.word)) {
-            message.delete().catch(() => {});
-            message.reply(`⛔ لا تستخدم كلمة ${bw.word}`).then(m => setTimeout(() => m.delete(), 5000));
-        }
-    }
+    // ================== سجل الأوامر ==================
+    logEvent(guild.id, 'command', `${user.tag} استخدم الأمر /${commandName}`, 0x00BFFF);
 
-    // نظام المستويات
-    if (!message.content.startsWith(PREFIX)) {
-        const xpGain = Math.floor(Math.random() * 15) + 5;
-        addXp(message.author.id, message.guild.id, xpGain);
-        updateStat(message.author.id, message.guild.id, 'messages', 1);
-        return;
-    }
-
-    const args = message.content.slice(PREFIX.length).trim().split(/ +/);
-    const command = args.shift().toLowerCase();
-
-    // ================== أوامر الإدارة ==================
-    if (command === 'kick') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.KickMembers)) return message.reply('❌ لا تملك صلاحية.');
-        const member = message.mentions.members.first();
-        if (!member) return message.reply('❌ حدد عضواً.');
-        const reason = args.join(' ') || 'لا يوجد سبب';
-        try { await member.kick(reason); message.reply(`✅ تم طرد ${member.user.tag}.`); logEvent(message.guild.id, 'kick', `${message.author.tag} طرد ${member.user.tag}`); } catch(e) { message.reply('❌ فشل الطرد.'); }
-    }
-
-    if (command === 'ban') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.BanMembers)) return message.reply('❌ لا تملك صلاحية.');
-        const member = message.mentions.members.first();
-        if (!member) return message.reply('❌ حدد عضواً.');
-        const reason = args.join(' ') || 'لا يوجد سبب';
-        try { await member.ban({ reason }); message.reply(`✅ تم حظر ${member.user.tag}.`); logEvent(message.guild.id, 'ban', `${message.author.tag} حظر ${member.user.tag}`); } catch(e) { message.reply('❌ فشل الحظر.'); }
-    }
-
-    if (command === 'unban') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.BanMembers)) return message.reply('❌ لا تملك صلاحية.');
-        const name = args.join(' ');
-        const bans = await message.guild.bans.fetch();
-        const user = bans.find(ban => ban.user.tag.includes(name));
-        if (!user) return message.reply('❌ لم يتم العثور على العضو.');
-        try { await message.guild.bans.remove(user.user); message.reply(`✅ تم رفع الحظر عن ${user.user.tag}.`); } catch(e) { message.reply('❌ فشل رفع الحظر.'); }
-    }
-
-    if (command === 'mute') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.ModerateMembers)) return message.reply('❌ لا تملك صلاحية.');
-        const member = message.mentions.members.first();
-        if (!member) return message.reply('❌ حدد عضواً.');
-        const duration = parseInt(args[0]) || 60;
-        const reason = args.slice(1).join(' ') || 'لا يوجد سبب';
-        try { await member.timeout(duration * 1000, reason); message.reply(`✅ تم كتم ${member.user.tag} لمدة ${duration} ثانية.`); } catch(e) { message.reply('❌ فشل الكتم.'); }
-    }
-
-    if (command === 'unmute') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.ModerateMembers)) return message.reply('❌ لا تملك صلاحية.');
-        const member = message.mentions.members.first();
-        if (!member) return message.reply('❌ حدد عضواً.');
-        try { await member.timeout(null); message.reply(`✅ تم رفع الكتم عن ${member.user.tag}.`); } catch(e) { message.reply('❌ فشل رفع الكتم.'); }
-    }
-
-    if (command === 'warn') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.ModerateMembers)) return message.reply('❌ لا تملك صلاحية.');
-        const member = message.mentions.members.first();
-        if (!member) return message.reply('❌ حدد عضواً.');
-        const reason = args.slice(1).join(' ') || 'لا يوجد سبب';
-        addWarning(member.id, message.guild.id, reason);
-        const warns = getWarnings(member.id);
-        message.reply(`⚠️ تم تحذير ${member.user.tag} (العدد: ${warns.length})`);
-    }
-
-    if (command === 'warnings') {
-        const member = message.mentions.members.first() || message.member;
-        const warns = getWarnings(member.id);
-        if (warns.length === 0) return message.reply(`✅ ${member.user.tag} ليس لديه تحذيرات.`);
-        const desc = warns.map((w, i) => `#${i+1}: ${w.reason} (${w.date})`).join('\n');
-        const embed = new EmbedBuilder().setTitle(`⚠️ تحذيرات ${member.user.tag}`).setDescription(desc).setColor(0xFF0000);
-        message.channel.send({ embeds: [embed] });
-    }
-
-    if (command === 'clearwarns') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ لا تملك صلاحية.');
-        const member = message.mentions.members.first();
-        if (!member) return message.reply('❌ حدد عضواً.');
-        clearWarnings(member.id);
-        message.reply(`✅ تم مسح تحذيرات ${member.user.tag}.`);
-    }
-
-    // ================== اقتصاد ==================
-    if (command === 'balance' || command === 'bal') {
-        const member = message.mentions.members.first() || message.member;
-        const bal = getBalance(member.id, message.guild.id);
-        message.reply(`💰 ${member.user.tag} رصيدك: **${bal}** عملة.`);
-    }
-
-    if (command === 'daily') {
-        const now = new Date().toISOString().slice(0,10);
-        const row = db.prepare("SELECT daily FROM economy WHERE user_id = ? AND guild_id = ?").get(message.author.id, message.guild.id);
-        if (row && row.daily === now) return message.reply('❌ انتظر حتى الغد.');
-        const amount = Math.floor(Math.random() * 100) + 50;
-        updateBalance(message.author.id, message.guild.id, amount);
-        db.prepare("UPDATE economy SET daily = ? WHERE user_id = ? AND guild_id = ?").run(now, message.author.id, message.guild.id);
-        message.reply(`✅ حصلت على **${amount}** عملة كمكافأة يومية!`);
-    }
-
-    if (command === 'work') {
-        const now = Date.now();
-        const row = db.prepare("SELECT work FROM economy WHERE user_id = ? AND guild_id = ?").get(message.author.id, message.guild.id);
-        if (row && row.work) {
-            const last = parseInt(row.work);
-            if (now - last < 3600000) {
-                const remain = Math.ceil((3600000 - (now - last)) / 1000);
-                return message.reply(`⏳ انتظر ${remain} ثانية.`);
+    // ================== أمر المساعدة ==================
+    if (commandName === 'مساعدة') {
+        const subCommand = options.getString('الأمر');
+        if (subCommand) {
+            const helpData = {
+                'مساعدة': 'عرض جميع الأوامر المتاحة مع شرح مفصل',
+                'معلومات': 'عرض معلومات عن البوت أو السيرفر أو العضو',
+                'اقتصاد': 'إدارة رصيدك وعملاتك (رصيد، يومي، عمل، سرقة، حظ، متجر، شراء)',
+                'مستوى': 'عرض مستواك أو ترتيب المتصدرين',
+                'إدارة': 'أوامر إدارة السيرفر (طرد، حظر، كتم، تحذير، مسح)',
+                'تذكرة': 'فتح وإغلاق تذاكر الدعم مع أقسام',
+                'ترحيب': 'إعدادات الترحيب والوداع مع صور',
+                'حماية': 'إعدادات الحماية المتقدمة',
+                'سجلات': 'تعيين قناة السجلات بأنواعها',
+                'أدوار': 'إدارة الأدوار التلقائية والتفاعلية',
+                'تذكير': 'تعيين تذكيرات عادية أو متكررة',
+                'لعبة': 'ألعاب متنوعة (حظ، نرد، عملة، ميم، طقس)',
+                'عشيرة': 'إنشاء وإدارة العشائر',
+                'مزرعة': 'زراعة وحصاد المحاصيل',
+                'مزاد': 'إنشاء والمزايدة في المزادات',
+                'مالك': 'أوامر مقيدة للمالك'
+            };
+            const info = helpData[subCommand];
+            if (info) {
+                const embed = new EmbedBuilder()
+                    .setTitle(`📖 شرح الأمر: /${subCommand}`)
+                    .setDescription(info)
+                    .setColor(0x00FF00)
+                    .addFields({ name: 'الاستخدام', value: `/${subCommand}` })
+                    .setFooter({ text: 'استخدم /مساعدة لعرض جميع الأوامر' });
+                return interaction.editReply({ embeds: [embed] });
+            } else {
+                return interaction.editReply({ content: `❌ لا يوجد أمر باسم **${subCommand}**. استخدم \`/مساعدة\` لعرض جميع الأوامر.` });
             }
         }
-        const amount = Math.floor(Math.random() * 40) + 10;
-        updateBalance(message.author.id, message.guild.id, amount);
-        db.prepare("UPDATE economy SET work = ? WHERE user_id = ? AND guild_id = ?").run(String(now), message.author.id, message.guild.id);
-        message.reply(`💼 عملت وكسبت **${amount}** عملة.`);
-    }
 
-    if (command === 'rob') {
-        const target = message.mentions.members.first();
-        if (!target || target.id === message.author.id) return message.reply('❌ حدد عضواً آخر.');
-        const targetBal = getBalance(target.id, message.guild.id);
-        if (targetBal < 10) return message.reply(`❌ ${target.user.tag} ليس لديه ما يكفي.`);
-        const success = Math.random() < 0.4;
-        if (success) {
-            const amount = Math.floor(Math.random() * Math.min(50, targetBal)) + 1;
-            updateBalance(message.author.id, message.guild.id, amount);
-            updateBalance(target.id, message.guild.id, -amount);
-            message.reply(`✅ سرقت **${amount}** عملة من ${target.user.tag}.`);
-        } else {
-            const penalty = Math.floor(Math.random() * 20) + 1;
-            updateBalance(message.author.id, message.guild.id, -penalty);
-            message.reply(`❌ فشلت السرقة وخسرت **${penalty}** عملة.`);
+        const embed = new EmbedBuilder()
+            .setTitle('📚 قائمة الأوامر - البوت الخارق')
+            .setDescription('إليك جميع الأوامر المتاحة. استخدم `/مساعدة <اسم_الأمر>` للحصول على شرح تفصيلي.')
+            .setColor(0x00BFFF)
+            .setThumbnail(client.user.displayAvatarURL())
+            .setFooter({ text: `طلب بواسطة ${user.tag}`, iconURL: user.displayAvatarURL() });
+
+        const categories = {
+            'ℹ️ معلومات': ['مساعدة', 'معلومات'],
+            '💰 اقتصاد': ['اقتصاد'],
+            '📊 مستويات': ['مستوى'],
+            '🛠️ إدارة': ['إدارة'],
+            '🎫 تذاكر': ['تذكرة'],
+            '📝 ترحيب': ['ترحيب'],
+            '🛡️ حماية': ['حماية', 'سجلات'],
+            '🎭 أدوار': ['أدوار'],
+            '⏰ تذكيرات': ['تذكير'],
+            '🎮 ألعاب': ['لعبة'],
+            '🏴 عشائر': ['عشيرة'],
+            '🌾 مزرعة': ['مزرعة'],
+            '🔨 مزادات': ['مزاد'],
+            '🔐 مالك': ['مالك']
+        };
+
+        let description = '';
+        for (const [category, cmds] of Object.entries(categories)) {
+            const cmdList = cmds.map(cmd => `\`/${cmd}\``).join(' ');
+            description += `**${category}**\n${cmdList}\n\n`;
         }
+
+        embed.setDescription(description);
+        embed.addFields({ name: '📖 للحصول على شرح مفصل', value: 'استخدم `/مساعدة <اسم_الأمر>`' });
+
+        return interaction.editReply({ embeds: [embed] });
     }
 
-    if (command === 'slot') {
-        const bet = parseInt(args[0]) || 10;
-        const bal = getBalance(message.author.id, message.guild.id);
-        if (bet <= 0 || bal < bet) return message.reply('❌ رصيد غير كافٍ.');
-        const symbols = ['🍒', '🍋', '🍊', '🍇', '💎', '7️⃣'];
-        const res = [symbols[Math.floor(Math.random()*6)], symbols[Math.floor(Math.random()*6)], symbols[Math.floor(Math.random()*6)]];
-        const embed = new EmbedBuilder().setTitle('🎰 ماكينة الحظ').setDescription(`${res[0]} ${res[1]} ${res[2]}`).setColor(0x2F3136);
-        if (res[0] === res[1] && res[1] === res[2]) {
-            const win = bet * 10;
-            updateBalance(message.author.id, message.guild.id, win);
-            embed.addFields({ name: '🎉 فوز', value: `ربحت **${win}** عملة!` });
-        } else if (res[0] === res[1] || res[1] === res[2] || res[0] === res[2]) {
-            const win = bet * 2;
-            updateBalance(message.author.id, message.guild.id, win);
-            embed.addFields({ name: '🎉 فوز بسيط', value: `ربحت **${win}** عملة!` });
-        } else {
-            updateBalance(message.author.id, message.guild.id, -bet);
-            embed.addFields({ name: '😔 خسارة', value: `خسرت **${bet}** عملة.` });
-        }
-        message.channel.send({ embeds: [embed] });
-    }
-
-    if (command === 'give') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ لا تملك صلاحية.');
-        const target = message.mentions.members.first();
-        const amount = parseInt(args[1]);
-        if (!target || !amount || amount <= 0) return message.reply('❌ استخدم: !give @user <مبلغ>');
-        updateBalance(target.id, message.guild.id, amount);
-        message.reply(`✅ تم إعطاء ${target.user.tag} **${amount}** عملة.`);
-    }
-
-    if (command === 'shop') {
-        const embed = new EmbedBuilder().setTitle('🛒 المتجر').setColor(0x00FF00)
-            .addFields(
-                { name: '🎁 هدية', value: '100 عملة', inline: true },
-                { name: '🌟 نجمة', value: '500 عملة (لقب)', inline: true },
-                { name: '👑 تاج', value: '1000 عملة (لقب)', inline: true },
-                { name: '🎨 لون مخصص', value: '2000 عملة', inline: true }
-            );
-        message.channel.send({ embeds: [embed] });
-    }
-
-    if (command === 'buy') {
-        const item = args.join(' ').toLowerCase();
-        const bal = getBalance(message.author.id, message.guild.id);
-        if (item === 'هدية') {
-            if (bal < 100) return message.reply('❌ تحتاج 100 عملة.');
-            updateBalance(message.author.id, message.guild.id, -100);
-            const prizes = ['🎁', '🍫', '🧸', '🎮', '📱', '💻'];
-            message.reply(`✅ اشتريت هدية وحصلت على: ${prizes[Math.floor(Math.random()*prizes.length)]}`);
-        } else if (item === 'نجمة') {
-            if (bal < 500) return message.reply('❌ تحتاج 500 عملة.');
-            updateBalance(message.author.id, message.guild.id, -500);
-            try { await message.member.setNickname(`⭐ ${message.member.displayName}`); message.reply('✅ تم إضافة نجمة.'); } catch(e) { message.reply('❌ لا أملك صلاحية تغيير اللقب.'); }
-        } else if (item === 'تاج') {
-            if (bal < 1000) return message.reply('❌ تحتاج 1000 عملة.');
-            updateBalance(message.author.id, message.guild.id, -1000);
-            try { await message.member.setNickname(`👑 ${message.member.displayName}`); message.reply('✅ تم إضافة تاج.'); } catch(e) { message.reply('❌ لا أملك صلاحية تغيير اللقب.'); }
-        } else {
-            message.reply('❌ العنصر غير موجود. استخدم !shop.');
-        }
-    }
-
-    // ================== مستويات ==================
-    if (command === 'rank') {
-        const member = message.mentions.members.first() || message.member;
-        const { xp, level } = getXp(member.id, message.guild.id);
-        const needed = 5 * (level * level) + 50 * level + 100;
-        const embed = new EmbedBuilder().setTitle(`📊 مستوى ${member.user.tag}`).setColor(0x00FF00)
-            .addFields(
-                { name: 'المستوى', value: String(level), inline: true },
-                { name: 'XP', value: `${xp} / ${needed}`, inline: true },
-                { name: 'التقدم', value: `${Math.floor((xp/needed)*100)}%`, inline: true }
-            );
-        message.channel.send({ embeds: [embed] });
-    }
-
-    if (command === 'leaderboard') {
-        const rows = db.prepare("SELECT user_id, level, xp FROM levels WHERE guild_id = ? ORDER BY level DESC, xp DESC LIMIT 10").all(message.guild.id);
-        if (!rows || rows.length === 0) return message.reply('❌ لا توجد بيانات.');
-        const desc = rows.map((r, i) => `#${i+1} <@${r.user_id}> - المستوى ${r.level} (${r.xp} XP)`).join('\n');
-        const embed = new EmbedBuilder().setTitle('🏆 لوحة المتصدرين').setDescription(desc).setColor(0xFFD700);
-        message.channel.send({ embeds: [embed] });
-    }
-
-    if (command === 'levelrole') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ لا تملك صلاحية.');
-        const level = parseInt(args[0]);
-        const role = message.mentions.roles.first();
-        if (!level || !role) return message.reply('❌ استخدم: !levelrole <مستوى> @دور');
-        db.prepare("INSERT OR REPLACE INTO level_roles (guild_id, level, role_id) VALUES (?, ?, ?)").run(message.guild.id, level, role.id);
-        message.reply(`✅ تم ربط دور ${role.name} بالمستوى ${level}.`);
-    }
-
-    // ================== تذاكر ==================
-    if (command === 'ticket') {
-        const topic = args.join(' ') || 'دعم عام';
-        let category = message.guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name === 'Tickets');
-        if (!category) category = await message.guild.channels.create({ name: 'Tickets', type: ChannelType.GuildCategory });
-        const overwrites = [
-            { id: message.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-            { id: message.author.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
-            { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
-        ];
-        const channel = await message.guild.channels.create({ name: `ticket-${message.author.username}`, type: ChannelType.GuildText, parent: category, permissionOverwrites: overwrites });
-        db.prepare("INSERT INTO tickets (guild_id, channel_id, user_id, topic, status, created_at) VALUES (?, ?, ?, ?, 'open', datetime('now'))").run(message.guild.id, channel.id, message.author.id, topic);
-        const embed = new EmbedBuilder().setTitle('🎫 تذكرة جديدة').setDescription(`الموضوع: ${topic}`).setColor(0x00BFFF).addFields({ name: 'أنشأها', value: message.author.tag });
-        channel.send({ content: `<@${message.author.id}>`, embeds: [embed] });
-        message.reply(`✅ تم فتح تذكرة: ${channel}`);
-    }
-
-    if (command === 'close') {
-        if (!message.channel.name.startsWith('ticket-')) return message.reply('❌ هذه ليست تذكرة.');
-        db.prepare("UPDATE tickets SET status = 'closed' WHERE channel_id = ?").run(message.channel.id);
-        await message.channel.send('🔒 سيتم حذف التذكرة خلال 5 ثوانٍ.');
-        setTimeout(() => message.channel.delete().catch(() => {}), 5000);
-    }
-
-    // ================== ترحيب ووداع ==================
-    if (command === 'setwelcome') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ لا تملك صلاحية.');
-        const channel = message.mentions.channels.first();
-        if (!channel) return message.reply('❌ حدد قناة.');
-        const msg = args.slice(1).join(' ') || 'مرحباً {user} في {server}';
-        db.prepare("INSERT OR REPLACE INTO welcome (guild_id, channel_id, message) VALUES (?, ?, ?)").run(message.guild.id, channel.id, msg);
-        message.reply(`✅ تم تعيين الترحيب في ${channel}`);
-    }
-
-    if (command === 'setgoodbye') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ لا تملك صلاحية.');
-        const channel = message.mentions.channels.first();
-        if (!channel) return message.reply('❌ حدد قناة.');
-        const msg = args.slice(1).join(' ') || 'وداعاً {user} من {server}';
-        db.prepare("INSERT OR REPLACE INTO goodbye (guild_id, channel_id, message) VALUES (?, ?, ?)").run(message.guild.id, channel.id, msg);
-        message.reply(`✅ تم تعيين الوداع في ${channel}`);
-    }
-
-    if (command === 'setautorole') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ لا تملك صلاحية.');
-        const role = message.mentions.roles.first();
-        if (!role) return message.reply('❌ حدد دوراً.');
-        db.prepare("INSERT OR REPLACE INTO autoroles (guild_id, role_id) VALUES (?, ?)").run(message.guild.id, role.id);
-        message.reply(`✅ تم تعيين دور تلقائي: ${role.name}`);
-    }
-
-    // ================== لوغينغ ==================
-    if (command === 'setlog') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ لا تملك صلاحية.');
-        const channel = message.mentions.channels.first();
-        const type = args[1] || 'all';
-        if (!channel) return message.reply('❌ حدد قناة.');
-        db.prepare("INSERT OR REPLACE INTO logging (guild_id, channel_id, type) VALUES (?, ?, ?)").run(message.guild.id, channel.id, type);
-        message.reply(`✅ تم تعيين سجلات ${type} في ${channel}`);
-    }
-
-    // ================== أوامر مخصصة ==================
-    if (command === 'addcmd') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ لا تملك صلاحية.');
-        const name = args[0];
-        const response = args.slice(1).join(' ');
-        if (!name || !response) return message.reply('❌ استخدم: !addcmd <اسم> <رد>');
-        db.prepare("INSERT OR REPLACE INTO custom_commands (guild_id, name, response) VALUES (?, ?, ?)").run(message.guild.id, name.toLowerCase(), response);
-        message.reply(`✅ تم إضافة الأمر !${name}`);
-    }
-
-    if (command === 'delcmd') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ لا تملك صلاحية.');
-        const name = args[0];
-        if (!name) return message.reply('❌ استخدم: !delcmd <اسم>');
-        db.prepare("DELETE FROM custom_commands WHERE guild_id = ? AND name = ?").run(message.guild.id, name.toLowerCase());
-        message.reply(`✅ تم حذف الأمر !${name}`);
-    }
-
-    if (command === 'cmds') {
-        const rows = db.prepare("SELECT name FROM custom_commands WHERE guild_id = ?").all(message.guild.id);
-        if (!rows || rows.length === 0) return message.reply('📭 لا توجد أوامر مخصصة.');
-        const list = rows.map(r => `!${r.name}`).join(', ');
-        message.reply(`📌 الأوامر المخصصة: ${list}`);
-    }
-
-    // ================== استطلاعات ==================
-    if (command === 'poll') {
-        const question = args[0];
-        const options = args.slice(1);
-        if (!question || options.length < 2) return message.reply('❌ استخدم: !poll "سؤال" "خيار1" "خيار2" ...');
-        const emojis = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'];
-        const desc = options.map((o, i) => `${emojis[i]} ${o}`).join('\n');
-        const embed = new EmbedBuilder().setTitle(`📊 ${question}`).setDescription(desc).setColor(0x00FF00);
-        const msg = await message.channel.send({ embeds: [embed] });
-        for (let i = 0; i < options.length; i++) await msg.react(emojis[i]);
-        db.prepare("INSERT INTO polls (guild_id, channel_id, message_id, question, options) VALUES (?, ?, ?, ?, ?)").run(message.guild.id, message.channel.id, msg.id, question, JSON.stringify(options));
-        message.delete().catch(() => {});
-    }
-
-    // ================== هدايا ==================
-    if (command === 'giveaway') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ لا تملك صلاحية.');
-        const duration = parseInt(args[0]) * 1000;
-        const winners = parseInt(args[1]);
-        const prize = args.slice(2).join(' ');
-        if (!duration || !winners || !prize) return message.reply('❌ استخدم: !giveaway <ثواني> <فائزون> <جائزة>');
-        const embed = new EmbedBuilder().setTitle('🎁 هدية جديدة!').setDescription(`الجائزة: ${prize}\nالفائزون: ${winners}`).setColor(0xFFD700).setFooter({ text: 'تفاعل بـ 🎉 للمشاركة' });
-        const msg = await message.channel.send({ embeds: [embed] });
-        await msg.react('🎉');
-        const endTime = Date.now() + duration;
-        db.prepare("INSERT INTO giveaways (guild_id, channel_id, message_id, prize, end_time, winners, entries) VALUES (?, ?, ?, ?, ?, ?, ?)").run(message.guild.id, message.channel.id, msg.id, prize, String(endTime), winners, '[]');
-        setTimeout(async () => {
-            const row = db.prepare("SELECT entries FROM giveaways WHERE message_id = ?").get(msg.id);
-            if (!row) return;
-            const entries = JSON.parse(row.entries);
-            if (entries.length === 0) return message.channel.send('❌ لا يوجد مشاركون.');
-            const shuffled = entries.sort(() => 0.5 - Math.random());
-            const selected = shuffled.slice(0, Math.min(winners, shuffled.length));
-            const mentions = selected.map(id => `<@${id}>`).join(', ');
-            message.channel.send(`🎉 الفائزون في هدية ${prize}: ${mentions}`);
-            db.prepare("DELETE FROM giveaways WHERE message_id = ?").run(msg.id);
-        }, duration);
-    }
-
-    // ================== تذكيرات ==================
-    if (command === 'remind') {
-        const duration = parseInt(args[0]);
-        const msgText = args.slice(1).join(' ');
-        if (!duration || !msgText) return message.reply('❌ استخدم: !remind <ثواني> <رسالة>');
-        const remindTime = Date.now() + duration * 1000;
-        db.prepare("INSERT INTO reminders (user_id, channel_id, message, remind_time) VALUES (?, ?, ?, ?)").run(message.author.id, message.channel.id, msgText, String(remindTime));
-        message.reply(`✅ تم تعيين تذكير بعد ${duration} ثانية.`);
-    }
-
-    if (command === 'remindrepeat') {
-        const interval = parseInt(args[0]);
-        const msgText = args.slice(1).join(' ');
-        if (!interval || !msgText) return message.reply('❌ استخدم: !remindrepeat <ثواني> <رسالة>');
-        const remindTime = Date.now() + interval * 1000;
-        db.prepare("INSERT INTO reminders (user_id, channel_id, message, remind_time, repeat_interval) VALUES (?, ?, ?, ?, ?)").run(message.author.id, message.channel.id, msgText, String(remindTime), interval);
-        message.reply(`✅ سيتم تذكيرك كل ${interval} ثانية.`);
-    }
-
-    // ================== ألعاب ==================
-    if (command === '8ball') {
-        const question = args.join(' ');
-        if (!question) return message.reply('❌ اسألني شيئاً.');
-        const answers = ['نعم', 'لا', 'ربما', 'بالتأكيد', 'مستحيل', 'اسأل لاحقاً', 'لا يمكن التنبؤ'];
-        message.reply(`🎱 **${answers[Math.floor(Math.random()*answers.length)]}**`);
-    }
-
-    if (command === 'roll') {
-        const max = parseInt(args[0]) || 100;
-        message.reply(`🎲 رميت النرد وحصلت على: **${Math.floor(Math.random()*max)+1}**`);
-    }
-
-    if (command === 'flip') {
-        message.reply(`🪙 العملة أظهرت: **${Math.random() < 0.5 ? 'وجه' : 'كتابة'}**`);
-    }
-
-    if (command === 'meme') {
-        try {
-            const res = await axios.get('https://meme-api.com/gimme');
-            const data = res.data;
-            const embed = new EmbedBuilder().setTitle(data.title).setURL(data.postLink).setImage(data.url).setColor(0x2F3136);
-            message.channel.send({ embeds: [embed] });
-        } catch(e) { message.reply('❌ لم أتمكن من جلب ميم.'); }
-    }
-
-    if (command === 'weather') {
-        const city = args.join(' ');
-        if (!city) return message.reply('❌ حدد مدينة.');
-        const apiKey = 'YOUR_WEATHER_API_KEY';
-        try {
-            const res = await axios.get(`https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${apiKey}&units=metric&lang=ar`);
-            const data = res.data;
-            const embed = new EmbedBuilder().setTitle(`🌤️ الطقس في ${city}`).setColor(0x00BFFF)
+    // ================== أمر المعلومات ==================
+    if (commandName === 'معلومات') {
+        const type = options.getString('النوع');
+        if (type === 'bot') {
+            const embed = new EmbedBuilder()
+                .setTitle('🤖 معلومات البوت')
+                .setColor(0x00BFFF)
+                .setThumbnail(client.user.displayAvatarURL())
                 .addFields(
-                    { name: 'درجة الحرارة', value: `${data.main.temp}°C`, inline: true },
-                    { name: 'الرطوبة', value: `${data.main.humidity}%`, inline: true },
-                    { name: 'الوصف', value: data.weather[0].description, inline: false }
+                    { name: 'اسم البوت', value: client.user.tag, inline: true },
+                    { name: 'عدد السيرفرات', value: String(client.guilds.cache.size), inline: true },
+                    { name: 'عدد الأعضاء', value: String(client.guilds.cache.reduce((a, g) => a + g.memberCount, 0)), inline: true },
+                    { name: 'وقت التشغيل', value: moment.duration(process.uptime(), 'seconds').humanize(), inline: true },
+                    { name: 'المطور', value: '<@464646868953956353>', inline: true }
                 );
-            message.channel.send({ embeds: [embed] });
-        } catch(e) { message.reply('❌ لم أتمكن من العثور على المدينة.'); }
-    }
-
-    if (command === 'news') {
-        const apiKey = 'YOUR_NEWS_API_KEY';
-        try {
-            const res = await axios.get(`https://newsapi.org/v2/top-headlines?country=us&apiKey=${apiKey}`);
-            const articles = res.data.articles.slice(0, 5);
-            const desc = articles.map(a => `**${a.title}**\n${a.description || ''}\n[رابط](${a.url})`).join('\n\n');
-            const embed = new EmbedBuilder().setTitle('📰 أهم الأخبار').setDescription(desc).setColor(0x2F3136);
-            message.channel.send({ embeds: [embed] });
-        } catch(e) { message.reply('❌ لم أتمكن من جلب الأخبار.'); }
-    }
-
-    // ================== موسيقى ==================
-    if (command === 'play') {
-        const query = args.join(' ');
-        if (!query) return message.reply('❌ أدخل اسم أغنية أو رابط.');
-        const voiceChannel = message.member.voice.channel;
-        if (!voiceChannel) return message.reply('❌ يجب أن تكون في قناة صوتية.');
-        if (!queues.get(message.guild.id)) queues.set(message.guild.id, []);
-        const queue = queues.get(message.guild.id);
-        try {
-            const info = await ytdl.getInfo(query);
-            const song = { title: info.videoDetails.title, url: info.videoDetails.video_url, requester: message.author.id };
-            queue.push(song);
-            if (!message.guild.members.me.voice.channel) {
-                await voiceChannel.join();
-                playSong(message.guild);
-            }
-            message.reply(`🎵 تمت الإضافة: **${song.title}**`);
-        } catch(e) { message.reply('❌ لم أتمكن من العثور على الأغنية.'); }
-    }
-
-    async function playSong(guild) {
-        const queue = queues.get(guild.id);
-        if (!queue || queue.length === 0) {
-            guild.members.me.voice.disconnect();
-            return;
+            return interaction.editReply({ embeds: [embed] });
+        } else if (type === 'server') {
+            const g = guild;
+            const embed = new EmbedBuilder()
+                .setTitle(`معلومات السيرفر ${g.name}`)
+                .setColor(0x00BFFF)
+                .setThumbnail(g.iconURL())
+                .addFields(
+                    { name: '🆔 المعرف', value: g.id, inline: true },
+                    { name: '👑 المالك', value: `<@${g.ownerId}>`, inline: true },
+                    { name: '👥 الأعضاء', value: String(g.memberCount), inline: true },
+                    { name: '📢 القنوات', value: String(g.channels.cache.size), inline: true },
+                    { name: '📅 التاريخ', value: g.createdAt.toDateString(), inline: true }
+                );
+            return interaction.editReply({ embeds: [embed] });
+        } else if (type === 'user') {
+            const target = options.getUser('العضو') || user;
+            const memberTarget = guild.members.cache.get(target.id);
+            const embed = new EmbedBuilder()
+                .setTitle(`معلومات ${target.tag}`)
+                .setColor(0x00BFFF)
+                .setThumbnail(target.displayAvatarURL())
+                .addFields(
+                    { name: '🆔 المعرف', value: target.id, inline: false },
+                    { name: '📅 انضم', value: memberTarget ? memberTarget.joinedAt.toDateString() : 'غير موجود', inline: true },
+                    { name: '📆 الحساب', value: target.createdAt.toDateString(), inline: true },
+                    { name: '🎭 الأدوار', value: memberTarget ? memberTarget.roles.cache.map(r => r.toString()).join(' ') || 'لا يوجد' : 'غير موجود', inline: false }
+                );
+            return interaction.editReply({ embeds: [embed] });
         }
-        const song = queue[0];
-        const connection = guild.members.me.voice;
-        if (!connection) return;
-        const stream = ytdl(song.url, { filter: 'audioonly', highWaterMark: 1 << 25 });
-        const player = connection.play(stream, { type: 'opus' });
-        player.on('finish', () => {
-            queue.shift();
-            playSong(guild);
-        });
-        player.on('error', () => { queue.shift(); playSong(guild); });
-        const channel = guild.systemChannel || guild.channels.cache.find(c => c.type === ChannelType.GuildText && c.permissionsFor(guild.members.me).has(PermissionsBitField.Flags.SendMessages));
-        if (channel) channel.send(`▶️ جارٍ التشغيل: **${song.title}**`);
     }
 
-    if (command === 'stop') {
-        if (!message.member.voice.channel) return message.reply('❌ لست في قناة صوتية.');
-        if (queues) queues.set(message.guild.id, []);
-        if (message.guild.members.me.voice) message.guild.members.me.voice.disconnect();
-        message.reply('⏹️ تم إيقاف الموسيقى.');
-    }
-
-    if (command === 'skip') {
-        const queue = queues.get(message.guild.id);
-        if (!queue || queue.length === 0) return message.reply('📭 القائمة فارغة.');
-        queue.shift();
-        if (message.guild.members.me.voice) {
-            message.guild.members.me.voice.disconnect();
-            const vc = message.member.voice.channel;
-            if (vc) {
-                await vc.join();
-                playSong(message.guild);
-            }
+    // ================== أمر الاقتصاد ==================
+    if (commandName === 'اقتصاد') {
+        const sub = options.getSubcommand();
+        if (sub === 'رصيد') {
+            const target = options.getUser('عضو') || user;
+            const bal = getBalance(target.id, guild.id);
+            return interaction.editReply({ content: `💰 ${target.tag} رصيدك: **${bal}** عملة.` });
         }
-        message.reply('⏭️ تم تخطي الأغنية.');
-    }
-
-    if (command === 'queue') {
-        const queue = queues.get(message.guild.id) || [];
-        if (queue.length === 0) return message.reply('📭 القائمة فارغة.');
-        const desc = queue.map((s, i) => `#${i+1} ${s.title}`).slice(0, 10).join('\n');
-        const embed = new EmbedBuilder().setTitle('🎵 قائمة التشغيل').setDescription(desc).setColor(0x00BFFF);
-        message.channel.send({ embeds: [embed] });
-    }
-
-    // ================== زواج ==================
-    if (command === 'marry') {
-        const target = message.mentions.members.first();
-        if (!target || target.id === message.author.id || target.bot) return message.reply('❌ حدد عضواً صالحاً.');
-        const row1 = db.prepare("SELECT * FROM marriages WHERE (user1 = ? OR user2 = ?) AND guild_id = ?").get(message.author.id, message.author.id, message.guild.id);
-        if (row1) return message.reply('❌ أنت متزوج بالفعل.');
-        const row2 = db.prepare("SELECT * FROM marriages WHERE (user1 = ? OR user2 = ?) AND guild_id = ?").get(target.id, target.id, message.guild.id);
-        if (row2) return message.reply(`❌ ${target.user.tag} متزوج بالفعل.`);
-        const embed = new EmbedBuilder().setTitle('💍 طلب زواج').setDescription(`${message.author} يطلب الزواج من ${target}`).setColor(0xFF69B4);
-        message.channel.send({ content: target.toString(), embeds: [embed] }).then(msg => {
-            msg.react('✅');
-            msg.react('❌');
-            const filter = (reaction, user) => user.id === target.id && ['✅', '❌'].includes(reaction.emoji.name);
-            msg.awaitReactions({ filter, max: 1, time: 60000 }).then(collected => {
-                if (collected.first()?.emoji.name === '✅') {
-                    db.prepare("INSERT INTO marriages (user1, user2, guild_id) VALUES (?, ?, ?)").run(message.author.id, target.id, message.guild.id);
-                    message.channel.send(`🎉 تم الزواج بين ${message.author} و ${target}!`);
-                } else {
-                    message.channel.send(`❌ تم رفض الطلب.`);
+        if (sub === 'يومي') {
+            const now = new Date().toISOString().slice(0, 10);
+            const row = db.prepare("SELECT daily FROM economy WHERE user_id = ? AND guild_id = ?").get(user.id, guild.id);
+            if (row && row.daily === now) return interaction.editReply({ content: '❌ انتظر حتى الغد.' });
+            const amount = Math.floor(Math.random() * 100) + 50;
+            updateBalance(user.id, guild.id, amount);
+            db.prepare("UPDATE economy SET daily = ? WHERE user_id = ? AND guild_id = ?").run(now, user.id, guild.id);
+            return interaction.editReply({ content: `✅ حصلت على **${amount}** عملة كمكافأة يومية!` });
+        }
+        if (sub === 'عمل') {
+            const now = Date.now();
+            const row = db.prepare("SELECT work FROM economy WHERE user_id = ? AND guild_id = ?").get(user.id, guild.id);
+            if (row && row.work) {
+                const last = parseInt(row.work);
+                if (now - last < 3600000) {
+                    const remain = Math.ceil((3600000 - (now - last)) / 1000);
+                    return interaction.editReply({ content: `⏳ انتظر ${remain} ثانية.` });
                 }
-            }).catch(() => message.channel.send('❌ انتهى الوقت.'));
-        });
+            }
+            const amount = Math.floor(Math.random() * 40) + 10;
+            updateBalance(user.id, guild.id, amount);
+            db.prepare("UPDATE economy SET work = ? WHERE user_id = ? AND guild_id = ?").run(String(now), user.id, guild.id);
+            return interaction.editReply({ content: `💼 عملت وكسبت **${amount}** عملة.` });
+        }
+        if (sub === 'سرقة') {
+            const target = options.getUser('عضو');
+            const targetMember = guild.members.cache.get(target.id);
+            if (!targetMember || target.id === user.id) return interaction.editReply({ content: '❌ حدد عضواً آخر.' });
+            const targetBal = getBalance(target.id, guild.id);
+            if (targetBal < 10) return interaction.editReply({ content: `❌ ${target.tag} ليس لديه ما يكفي.` });
+            const success = Math.random() < 0.4;
+            if (success) {
+                const amount = Math.floor(Math.random() * Math.min(50, targetBal)) + 1;
+                updateBalance(user.id, guild.id, amount);
+                updateBalance(target.id, guild.id, -amount);
+                logEvent(guild.id, 'rob', `${user.tag} سرق ${target.tag} بمبلغ ${amount}`, 0xFF0000);
+                return interaction.editReply({ content: `✅ سرقت **${amount}** عملة من ${target.tag}.` });
+            } else {
+                const penalty = Math.floor(Math.random() * 20) + 1;
+                updateBalance(user.id, guild.id, -penalty);
+                return interaction.editReply({ content: `❌ فشلت السرقة وخسرت **${penalty}** عملة.` });
+            }
+        }
+        if (sub === 'حظ') {
+            const bet = options.getInteger('رهان') || 10;
+            const bal = getBalance(user.id, guild.id);
+            if (bet <= 0 || bal < bet) return interaction.editReply({ content: '❌ رصيد غير كافٍ.' });
+            const symbols = ['🍒', '🍋', '🍊', '🍇', '💎', '7️⃣'];
+            const res = [symbols[Math.floor(Math.random() * 6)], symbols[Math.floor(Math.random() * 6)], symbols[Math.floor(Math.random() * 6)]];
+            const embed = new EmbedBuilder().setTitle('🎰 ماكينة الحظ').setDescription(`${res[0]} ${res[1]} ${res[2]}`).setColor(0x2F3136);
+            if (res[0] === res[1] && res[1] === res[2]) {
+                const win = bet * 10;
+                updateBalance(user.id, guild.id, win);
+                embed.addFields({ name: '🎉 فوز', value: `ربحت **${win}** عملة!` });
+            } else if (res[0] === res[1] || res[1] === res[2] || res[0] === res[2]) {
+                const win = bet * 2;
+                updateBalance(user.id, guild.id, win);
+                embed.addFields({ name: '🎉 فوز بسيط', value: `ربحت **${win}** عملة!` });
+            } else {
+                updateBalance(user.id, guild.id, -bet);
+                embed.addFields({ name: '😔 خسارة', value: `خسرت **${bet}** عملة.` });
+            }
+            return interaction.editReply({ embeds: [embed] });
+        }
+        if (sub === 'متجر') {
+            const embed = new EmbedBuilder().setTitle('🛒 المتجر').setColor(0x00FF00)
+                .addFields(
+                    { name: '🎁 هدية', value: '100 عملة', inline: true },
+                    { name: '🌟 نجمة', value: '500 عملة (لقب)', inline: true },
+                    { name: '👑 تاج', value: '1000 عملة (لقب)', inline: true }
+                );
+            return interaction.editReply({ embeds: [embed] });
+        }
+        if (sub === 'شراء') {
+            const item = options.getString('العنصر');
+            const bal = getBalance(user.id, guild.id);
+            if (item === 'هدية') {
+                if (bal < 100) return interaction.editReply({ content: '❌ تحتاج 100 عملة.' });
+                updateBalance(user.id, guild.id, -100);
+                const prizes = ['🎁', '🍫', '🧸', '🎮', '📱', '💻'];
+                return interaction.editReply({ content: `✅ اشتريت هدية وحصلت على: ${prizes[Math.floor(Math.random() * prizes.length)]}` });
+            }
+            if (item === 'نجمة') {
+                if (bal < 500) return interaction.editReply({ content: '❌ تحتاج 500 عملة.' });
+                updateBalance(user.id, guild.id, -500);
+                try {
+                    await member.setNickname(`⭐ ${member.displayName}`);
+                    return interaction.editReply({ content: '✅ تم إضافة نجمة إلى اسمك!' });
+                } catch (e) {
+                    return interaction.editReply({ content: '❌ لا أملك صلاحية تغيير اللقب.' });
+                }
+            }
+            if (item === 'تاج') {
+                if (bal < 1000) return interaction.editReply({ content: '❌ تحتاج 1000 عملة.' });
+                updateBalance(user.id, guild.id, -1000);
+                try {
+                    await member.setNickname(`👑 ${member.displayName}`);
+                    return interaction.editReply({ content: '✅ تم إضافة تاج إلى اسمك!' });
+                } catch (e) {
+                    return interaction.editReply({ content: '❌ لا أملك صلاحية تغيير اللقب.' });
+                }
+            }
+        }
     }
 
-    if (command === 'divorce') {
-        db.prepare("DELETE FROM marriages WHERE (user1 = ? OR user2 = ?) AND guild_id = ?").run(message.author.id, message.author.id, message.guild.id);
-        message.reply('💔 تم الطلاق.');
+    // ================== أمر المستوى ==================
+    if (commandName === 'مستوى') {
+        const sub = options.getSubcommand();
+        if (sub === 'رتبتي') {
+            const target = options.getUser('عضو') || user;
+            const { xp, level } = getXp(target.id, guild.id);
+            const needed = 5 * (level * level) + 50 * level + 100;
+            const embed = new EmbedBuilder().setTitle(`📊 مستوى ${target.tag}`).setColor(0x00FF00)
+                .addFields(
+                    { name: 'المستوى', value: String(level), inline: true },
+                    { name: 'XP', value: `${xp} / ${needed}`, inline: true },
+                    { name: 'التقدم', value: `${Math.floor((xp / needed) * 100)}%`, inline: true }
+                );
+            return interaction.editReply({ embeds: [embed] });
+        }
+        if (sub === 'المتصدرين') {
+            const rows = db.prepare("SELECT user_id, level, xp FROM levels WHERE guild_id = ? ORDER BY level DESC, xp DESC LIMIT 10").all(guild.id);
+            if (!rows || rows.length === 0) return interaction.editReply({ content: '❌ لا توجد بيانات.' });
+            const desc = rows.map((r, i) => `#${i + 1} <@${r.user_id}> - المستوى ${r.level} (${r.xp} XP)`).join('\n');
+            const embed = new EmbedBuilder().setTitle('🏆 لوحة المتصدرين').setDescription(desc).setColor(0xFFD700);
+            return interaction.editReply({ embeds: [embed] });
+        }
     }
 
-    if (command === 'married') {
-        const rows = db.prepare("SELECT user1, user2 FROM marriages WHERE guild_id = ?").all(message.guild.id);
-        if (!rows || rows.length === 0) return message.reply('📭 لا يوجد زيجات.');
-        const list = rows.map(r => `<@${r.user1}> 💕 <@${r.user2}>`).join('\n');
-        const embed = new EmbedBuilder().setTitle('💕 الزيجات').setDescription(list).setColor(0xFF69B4);
-        message.channel.send({ embeds: [embed] });
+    // ================== أمر الإدارة ==================
+    if (commandName === 'إدارة') {
+        const sub = options.getSubcommand();
+        if (!member.permissions.has(PermissionsBitField.Flags.ModerateMembers)) {
+            return interaction.editReply({ content: '❌ ليس لديك صلاحية.', ephemeral: true });
+        }
+        if (sub === 'طرد') {
+            const target = options.getUser('عضو');
+            const targetMember = guild.members.cache.get(target.id);
+            if (!targetMember) return interaction.editReply({ content: '❌ العضو غير موجود.' });
+            const reason = options.getString('سبب') || 'لا يوجد سبب';
+            try {
+                await targetMember.kick(reason);
+                logEvent(guild.id, 'kick', `${user.tag} طرد ${target.tag} بسبب ${reason}`, 0xFF0000);
+                return interaction.editReply({ content: `✅ تم طرد ${target.tag}.` });
+            } catch (e) {
+                return interaction.editReply({ content: '❌ فشل الطرد.' });
+            }
+        }
+        if (sub === 'حظر') {
+            const target = options.getUser('عضو');
+            const targetMember = guild.members.cache.get(target.id);
+            if (!targetMember) return interaction.editReply({ content: '❌ العضو غير موجود.' });
+            const reason = options.getString('سبب') || 'لا يوجد سبب';
+            try {
+                await targetMember.ban({ reason });
+                logEvent(guild.id, 'ban', `${user.tag} حظر ${target.tag} بسبب ${reason}`, 0xFF0000);
+                return interaction.editReply({ content: `✅ تم حظر ${target.tag}.` });
+            } catch (e) {
+                return interaction.editReply({ content: '❌ فشل الحظر.' });
+            }
+        }
+        if (sub === 'رفع_حظر') {
+            const name = options.getString('اسم');
+            const bans = await guild.bans.fetch();
+            const banned = bans.find(ban => ban.user.tag.includes(name) || ban.user.id === name);
+            if (!banned) return interaction.editReply({ content: '❌ لم يتم العثور على العضو.' });
+            try {
+                await guild.bans.remove(banned.user);
+                logEvent(guild.id, 'unban', `${user.tag} رفع الحظر عن ${banned.user.tag}`, 0x00FF00);
+                return interaction.editReply({ content: `✅ تم رفع الحظر عن ${banned.user.tag}.` });
+            } catch (e) {
+                return interaction.editReply({ content: '❌ فشل رفع الحظر.' });
+            }
+        }
+        if (sub === 'كتم') {
+            const target = options.getUser('عضو');
+            const targetMember = guild.members.cache.get(target.id);
+            if (!targetMember) return interaction.editReply({ content: '❌ العضو غير موجود.' });
+            const duration = options.getInteger('مدة');
+            const reason = options.getString('سبب') || 'لا يوجد سبب';
+            try {
+                await targetMember.timeout(duration * 1000, reason);
+                logEvent(guild.id, 'mute', `${user.tag} كتم ${target.tag} لمدة ${duration}s`, 0xFFA500);
+                return interaction.editReply({ content: `✅ تم كتم ${target.tag} لمدة ${duration} ثانية.` });
+            } catch (e) {
+                return interaction.editReply({ content: '❌ فشل الكتم.' });
+            }
+        }
+        if (sub === 'رفع_كتم') {
+            const target = options.getUser('عضو');
+            const targetMember = guild.members.cache.get(target.id);
+            if (!targetMember) return interaction.editReply({ content: '❌ العضو غير موجود.' });
+            try {
+                await targetMember.timeout(null);
+                logEvent(guild.id, 'unmute', `${user.tag} رفع الكتم عن ${target.tag}`, 0x00FF00);
+                return interaction.editReply({ content: `✅ تم رفع الكتم عن ${target.tag}.` });
+            } catch (e) {
+                return interaction.editReply({ content: '❌ فشل رفع الكتم.' });
+            }
+        }
+        if (sub === 'تحذير') {
+            const target = options.getUser('عضو');
+            const targetMember = guild.members.cache.get(target.id);
+            if (!targetMember) return interaction.editReply({ content: '❌ العضو غير موجود.' });
+            const reason = options.getString('سبب') || 'لا يوجد سبب';
+            const count = addWarning(target.id, guild.id, reason, user.id);
+            logEvent(guild.id, 'warn', `${user.tag} حذر ${target.tag} بسبب ${reason}`, 0xFFA500);
+            return interaction.editReply({ content: `⚠️ تم تحذير ${target.tag} (العدد: ${count})` });
+        }
+        if (sub === 'تحذيرات') {
+            const target = options.getUser('عضو');
+            const warns = getWarnings(target.id, guild.id);
+            if (!warns || warns.length === 0) return interaction.editReply({ content: `✅ ${target.tag} ليس لديه تحذيرات.` });
+            const desc = warns.map((w, i) => `#${i + 1}: ${w.reason} (بواسطة <@${w.moderator}>)`).join('\n');
+            const embed = new EmbedBuilder().setTitle(`⚠️ تحذيرات ${target.tag}`).setDescription(desc).setColor(0xFF0000);
+            return interaction.editReply({ embeds: [embed] });
+        }
+        if (sub === 'مسح_تحذيرات') {
+            const target = options.getUser('عضو');
+            clearWarnings(target.id, guild.id);
+            logEvent(guild.id, 'clear_warns', `${user.tag} مسح تحذيرات ${target.tag}`, 0x00FF00);
+            return interaction.editReply({ content: `✅ تم مسح تحذيرات ${target.tag}.` });
+        }
+        if (sub === 'مسح') {
+            const count = options.getInteger('عدد');
+            if (!member.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
+                return interaction.editReply({ content: '❌ ليس لديك صلاحية.', ephemeral: true });
+            }
+            try {
+                await channel.bulkDelete(count, true);
+                logEvent(guild.id, 'purge', `${user.tag} حذف ${count} رسالة`, 0x00BFFF);
+                return interaction.editReply({ content: `✅ تم حذف ${count} رسالة.` });
+            } catch (e) {
+                return interaction.editReply({ content: '❌ فشل الحذف.' });
+            }
+        }
     }
 
-    // ================== حماية ==================
-    if (command === 'raidmode') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ لا تملك صلاحية.');
-        const level = parseInt(args[0]) || 1;
-        try {
-            await message.guild.setVerificationLevel(level);
-            message.reply(`✅ تم تفعيل وضع الحماية المستوى ${level}.`);
-        } catch(e) { message.reply('❌ فشل التفعيل.'); }
+    // ================== أمر التذاكر ==================
+    if (commandName === 'تذكرة') {
+        const sub = options.getSubcommand();
+        if (sub === 'فتح') {
+            const topic = options.getString('الموضوع');
+            const category = options.getString('القسم');
+            const ticketCategory = guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name === 'تذاكر');
+            if (!ticketCategory) {
+                return interaction.editReply({ content: '❌ لا توجد فئة "تذاكر". اطلب من المشرف إنشائها.' });
+            }
+            const overwrites = [
+                { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+                { id: user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
+                { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
+            ];
+            const channelName = `تذكرة-${user.username}`;
+            const ticketChannel = await guild.channels.create({
+                name: channelName,
+                type: ChannelType.GuildText,
+                parent: ticketCategory,
+                permissionOverwrites: overwrites,
+                topic: `📌 ${category} - ${topic}`
+            });
+            db.prepare("INSERT INTO tickets (guild_id, channel_id, user_id, topic, status, created_at, category, priority) VALUES (?, ?, ?, ?, 'open', datetime('now'), ?, 'عادي')")
+                .run(guild.id, ticketChannel.id, user.id, topic, category);
+            const embed = new EmbedBuilder()
+                .setTitle('🎫 تذكرة جديدة')
+                .setDescription(`**الموضوع:** ${topic}\n**القسم:** ${category}`)
+                .setColor(0x00BFFF)
+                .addFields(
+                    { name: 'أنشأها', value: user.tag, inline: true },
+                    { name: 'الحالة', value: '🟢 مفتوحة', inline: true }
+                )
+                .setFooter({ text: 'استخدم /تذكرة إغلاق لإغلاق التذكرة' });
+            const row = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder().setCustomId('close_ticket').setLabel('🔒 إغلاق التذكرة').setStyle(ButtonStyle.Danger),
+                    new ButtonBuilder().setCustomId('ticket_claim').setLabel('📌 تولي').setStyle(ButtonStyle.Primary)
+                );
+            await ticketChannel.send({ content: `<@${user.id}>`, embeds: [embed], components: [row] });
+            logEvent(guild.id, 'ticket_open', `${user.tag} فتح تذكرة: ${topic}`, 0x00BFFF);
+            return interaction.editReply({ content: `✅ تم فتح تذكرة: ${ticketChannel}` });
+        }
+        if (sub === 'إغلاق') {
+            if (!channel.name.startsWith('تذكرة-')) {
+                return interaction.editReply({ content: '❌ هذه ليست قناة تذكرة.', ephemeral: true });
+            }
+            db.prepare("UPDATE tickets SET status = 'closed' WHERE channel_id = ?").run(channel.id);
+            logEvent(guild.id, 'ticket_close', `${user.tag} أغلق تذكرة ${channel.name}`, 0xFF0000);
+            await interaction.editReply({ content: '🔒 سيتم حذف التذكرة خلال 5 ثوانٍ.' });
+            setTimeout(() => channel.delete().catch(() => {}), 5000);
+        }
+        if (sub === 'لوحة') {
+            if (!member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+                return interaction.editReply({ content: '❌ ليس لديك صلاحية.', ephemeral: true });
+            }
+            const embed = new EmbedBuilder()
+                .setTitle('🎫 نظام التذاكر')
+                .setDescription('اختر القسم المناسب لفتح تذكرة دعم')
+                .setColor(0x00BFFF)
+                .setImage('https://i.imgur.com/your-image-here.png');
+            const selectMenu = new StringSelectMenuBuilder()
+                .setCustomId('ticket_menu')
+                .setPlaceholder('اختر قسم التذكرة')
+                .addOptions(
+                    new StringSelectMenuOptionBuilder().setLabel('دعم فني').setDescription('مشاكل تقنية').setValue('دعم فني').setEmoji('🛠️'),
+                    new StringSelectMenuOptionBuilder().setLabel('شكوى').setDescription('تقديم شكوى').setValue('شكوى').setEmoji('📢'),
+                    new StringSelectMenuOptionBuilder().setLabel('اقتراح').setDescription('تقديم اقتراح').setValue('اقتراح').setEmoji('💡'),
+                    new StringSelectMenuOptionBuilder().setLabel('طلب عضوية').setDescription('طلب الانضمام').setValue('طلب عضوية').setEmoji('👋'),
+                    new StringSelectMenuOptionBuilder().setLabel('أخرى').setDescription('أسباب أخرى').setValue('أخرى').setEmoji('❓')
+                );
+            const row = new ActionRowBuilder().addComponents(selectMenu);
+            await interaction.editReply({ content: '✅ تم إنشاء لوحة التذاكر.', ephemeral: true });
+            await channel.send({ embeds: [embed], components: [row] });
+        }
     }
 
-    // ================== معلومات ==================
-    if (command === 'userinfo') {
-        const member = message.mentions.members.first() || message.member;
-        const embed = new EmbedBuilder().setTitle(`معلومات ${member.user.tag}`).setThumbnail(member.displayAvatarURL()).setColor(member.displayColor || 0x2F3136)
-            .addFields(
-                { name: '🆔 ID', value: member.id, inline: false },
-                { name: '📅 انضم', value: member.joinedAt.toDateString(), inline: true },
-                { name: '📆 الحساب', value: member.user.createdAt.toDateString(), inline: true },
-                { name: '🎭 الأدوار', value: member.roles.cache.map(r => r.toString()).join(' ') || 'لا يوجد', inline: false }
-            );
-        message.channel.send({ embeds: [embed] });
+    // ================== أمر الترحيب ==================
+    if (commandName === 'ترحيب') {
+        const sub = options.getSubcommand();
+        if (!member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+            return interaction.editReply({ content: '❌ ليس لديك صلاحية.', ephemeral: true });
+        }
+        if (sub === 'تعيين') {
+            const targetChannel = options.getChannel('قناة');
+            const message = options.getString('رسالة') || 'مرحباً {user} في {server}';
+            const attachment = options.getAttachment('صورة');
+            const imageUrl = attachment ? attachment.url : '';
+            db.prepare("INSERT OR REPLACE INTO welcome (guild_id, channel_id, message, image_url) VALUES (?, ?, ?, ?)")
+                .run(guild.id, targetChannel.id, message, imageUrl);
+            return interaction.editReply({ content: `✅ تم تعيين الترحيب في ${targetChannel} مع ${imageUrl ? 'صورة' : 'بدون صورة'}` });
+        }
+        if (sub === 'تعيين_وداع') {
+            const targetChannel = options.getChannel('قناة');
+            const message = options.getString('رسالة') || 'وداعاً {user} من {server}';
+            const attachment = options.getAttachment('صورة');
+            const imageUrl = attachment ? attachment.url : '';
+            db.prepare("INSERT OR REPLACE INTO goodbye (guild_id, channel_id, message, image_url) VALUES (?, ?, ?, ?)")
+                .run(guild.id, targetChannel.id, message, imageUrl);
+            return interaction.editReply({ content: `✅ تم تعيين الوداع في ${targetChannel} مع ${imageUrl ? 'صورة' : 'بدون صورة'}` });
+        }
     }
 
-    if (command === 'serverinfo') {
-        const g = message.guild;
-        const embed = new EmbedBuilder().setTitle(`معلومات ${g.name}`).setThumbnail(g.iconURL()).setColor(0x2F3136)
-            .addFields(
-                { name: '🆔 ID', value: g.id, inline: true },
-                { name: '👑 المالك', value: `<@${g.ownerId}>`, inline: true },
-                { name: '👥 الأعضاء', value: String(g.memberCount), inline: true },
-                { name: '📢 القنوات', value: String(g.channels.cache.size), inline: true },
-                { name: '📅 التاريخ', value: g.createdAt.toDateString(), inline: true }
-            );
-        message.channel.send({ embeds: [embed] });
+    // ================== أمر الحماية ==================
+    if (commandName === 'حماية') {
+        const sub = options.getSubcommand();
+        if (!member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+            return interaction.editReply({ content: '❌ ليس لديك صلاحية.', ephemeral: true });
+        }
+        if (sub === 'تفعيل') {
+            const level = options.getInteger('المستوى');
+            try {
+                await guild.setVerificationLevel(level);
+                return interaction.editReply({ content: `✅ تم تفعيل الحماية المستوى ${level}.` });
+            } catch (e) {
+                return interaction.editReply({ content: '❌ فشل التفعيل.' });
+            }
+        }
+        if (sub === 'تعيين_دور_كتم') {
+            const role = options.getRole('دور');
+            db.prepare("INSERT OR REPLACE INTO mute_roles (guild_id, role_id) VALUES (?, ?)").run(guild.id, role.id);
+            return interaction.editReply({ content: `✅ تم تعيين دور الكتم: ${role.name}` });
+        }
+        if (sub === 'تعيين_دور_تحقق') {
+            const role = options.getRole('دور');
+            const channel = options.getChannel('قناة');
+            db.prepare("INSERT OR REPLACE INTO verify_roles (guild_id, role_id, channel_id) VALUES (?, ?, ?)").run(guild.id, role.id, channel.id);
+            // إنشاء زر التحقق
+            const embed = new EmbedBuilder()
+                .setTitle('✅ التحقق')
+                .setDescription('اضغط على الزر أدناه للتحقق من هويتك.')
+                .setColor(0x00FF00);
+            const row = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder().setCustomId('verify_button').setLabel('تحقق').setStyle(ButtonStyle.Success).setEmoji('✅')
+                );
+            await channel.send({ embeds: [embed], components: [row] });
+            return interaction.editReply({ content: `✅ تم تعيين دور التحقق ${role.name} في ${channel}` });
+        }
+        if (sub === 'إعدادات_سبام') {
+            const limit = options.getInteger('الحد');
+            db.prepare("INSERT OR REPLACE INTO auto_mod (guild_id, spam_threshold) VALUES (?, ?)").run(guild.id, limit);
+            return interaction.editReply({ content: `✅ تم تعيين حد السبام إلى ${limit} رسائل في 5 ثوانٍ.` });
+        }
     }
 
-    if (command === 'ping') {
-        message.reply(`🏓 Pong! ${client.ws.ping}ms`);
+    // ================== أمر السجلات ==================
+    if (commandName === 'سجلات') {
+        const sub = options.getSubcommand();
+        if (!member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+            return interaction.editReply({ content: '❌ ليس لديك صلاحية.', ephemeral: true });
+        }
+        if (sub === 'تعيين') {
+            const targetChannel = options.getChannel('قناة');
+            const type = options.getString('النوع');
+            db.prepare("INSERT OR REPLACE INTO logging (guild_id, channel_id, type) VALUES (?, ?, ?)")
+                .run(guild.id, targetChannel.id, type);
+            return interaction.editReply({ content: `✅ تم تعيين سجلات ${type} في ${targetChannel}` });
+        }
     }
 
-    // ================== الأنظمة الجديدة ==================
-    // ---- العشائر ----
-    if (command === 'clan') {
-        const sub = args[0];
-        if (sub === 'create') {
-            const name = args.slice(1).join(' ');
-            if (!name) return message.reply('❌ أدخل اسم العشيرة.');
-            const row = db.prepare("SELECT * FROM clans WHERE guild_id = ? AND name = ?").get(message.guild.id, name);
-            if (row) return message.reply('❌ هذه العشيرة موجودة.');
-            db.prepare("INSERT INTO clans (guild_id, name, owner, members, created_at) VALUES (?, ?, ?, ?, datetime('now'))").run(message.guild.id, name, message.author.id, JSON.stringify([message.author.id]));
-            message.reply(`✅ تم إنشاء عشيرة **${name}**`);
-        } else if (sub === 'info') {
-            const name = args.slice(1).join(' ');
-            if (!name) return message.reply('❌ أدخل اسم العشيرة.');
-            const row = db.prepare("SELECT * FROM clans WHERE guild_id = ? AND name = ?").get(message.guild.id, name);
-            if (!row) return message.reply('❌ العشيرة غير موجودة.');
+    // ================== أمر الأدوار ==================
+    if (commandName === 'أدوار') {
+        const sub = options.getSubcommand();
+        if (!member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+            return interaction.editReply({ content: '❌ ليس لديك صلاحية.', ephemeral: true });
+        }
+        if (sub === 'تعيين_تلقائي') {
+            const role = options.getRole('دور');
+            db.prepare("INSERT OR REPLACE INTO autoroles (guild_id, role_id) VALUES (?, ?)").run(guild.id, role.id);
+            return interaction.editReply({ content: `✅ تم تعيين دور تلقائي: ${role.name}` });
+        }
+        if (sub === 'تفاعلي') {
+            const msgId = options.getString('رسالة');
+            const role = options.getRole('دور');
+            const emoji = options.getString('إيموجي');
+            db.prepare("INSERT INTO reaction_roles (guild_id, message_id, role_id, emoji) VALUES (?, ?, ?, ?)")
+                .run(guild.id, msgId, role.id, emoji);
+            try {
+                const msg = await channel.messages.fetch(msgId);
+                await msg.react(emoji);
+            } catch (e) {}
+            return interaction.editReply({ content: `✅ تم ربط الإيموجي ${emoji} بالدور ${role.name}` });
+        }
+        if (sub === 'قائمة') {
+            const rows = db.prepare("SELECT id, message_id, role_id, emoji FROM reaction_roles WHERE guild_id = ?").all(guild.id);
+            if (!rows || rows.length === 0) return interaction.editReply({ content: '📭 لا توجد أدوار تفاعلية.' });
+            const list = rows.map(r => `#${r.id} - ${r.emoji} -> <@&${r.role_id}>`).join('\n');
+            return interaction.editReply({ content: `📋 الأدوار التفاعلية:\n${list}` });
+        }
+    }
+
+    // ================== أمر التذكير ==================
+    if (commandName === 'تذكير') {
+        const sub = options.getSubcommand();
+        if (sub === 'تعيين') {
+            const duration = options.getInteger('مدة');
+            const msgText = options.getString('رسالة');
+            const remindTime = Date.now() + duration * 1000;
+            db.prepare("INSERT INTO reminders (user_id, channel_id, message, remind_time) VALUES (?, ?, ?, ?)")
+                .run(user.id, channel.id, msgText, String(remindTime));
+            return interaction.editReply({ content: `✅ تم تعيين تذكير بعد ${duration} ثانية.` });
+        }
+        if (sub === 'متكرر') {
+            const interval = options.getInteger('مدة');
+            const msgText = options.getString('رسالة');
+            const remindTime = Date.now() + interval * 1000;
+            db.prepare("INSERT INTO reminders (user_id, channel_id, message, remind_time, repeat_interval) VALUES (?, ?, ?, ?, ?)")
+                .run(user.id, channel.id, msgText, String(remindTime), interval);
+            return interaction.editReply({ content: `✅ سيتم تذكيرك كل ${interval} ثانية.` });
+        }
+    }
+
+    // ================== أمر الألعاب ==================
+    if (commandName === 'لعبة') {
+        const sub = options.getSubcommand();
+        if (sub === 'حظ') {
+            const question = options.getString('سؤال');
+            const answers = ['نعم', 'لا', 'ربما', 'بالتأكيد', 'مستحيل', 'اسأل لاحقاً', 'لا يمكن التنبؤ'];
+            return interaction.editReply({ content: `🎱 **${answers[Math.floor(Math.random() * answers.length)]}**` });
+        }
+        if (sub === 'نرد') {
+            const max = options.getInteger('أقصى') || 100;
+            return interaction.editReply({ content: `🎲 رميت النرد وحصلت على: **${Math.floor(Math.random() * max) + 1}**` });
+        }
+        if (sub === 'عملة') {
+            return interaction.editReply({ content: `🪙 العملة أظهرت: **${Math.random() < 0.5 ? 'وجه' : 'كتابة'}**` });
+        }
+        if (sub === 'ميم') {
+            try {
+                const res = await axios.get('https://meme-api.com/gimme');
+                const data = res.data;
+                const embed = new EmbedBuilder().setTitle(data.title).setURL(data.postLink).setImage(data.url).setColor(0x2F3136);
+                return interaction.editReply({ embeds: [embed] });
+            } catch (e) {
+                return interaction.editReply({ content: '❌ لم أتمكن من جلب ميم.' });
+            }
+        }
+        if (sub === 'طقس') {
+            const city = options.getString('مدينة');
+            const apiKey = 'YOUR_WEATHER_API_KEY';
+            try {
+                const res = await axios.get(`https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${apiKey}&units=metric&lang=ar`);
+                const data = res.data;
+                const embed = new EmbedBuilder().setTitle(`🌤️ الطقس في ${city}`).setColor(0x00BFFF)
+                    .addFields(
+                        { name: 'درجة الحرارة', value: `${data.main.temp}°C`, inline: true },
+                        { name: 'الرطوبة', value: `${data.main.humidity}%`, inline: true },
+                        { name: 'الوصف', value: data.weather[0].description, inline: false }
+                    );
+                return interaction.editReply({ embeds: [embed] });
+            } catch (e) {
+                return interaction.editReply({ content: '❌ لم أتمكن من العثور على المدينة.' });
+            }
+        }
+    }
+
+    // ================== أمر العشيرة ==================
+    if (commandName === 'عشيرة') {
+        const sub = options.getSubcommand();
+        if (sub === 'إنشاء') {
+            const name = options.getString('الاسم');
+            const row = db.prepare("SELECT * FROM clans WHERE guild_id = ? AND name = ?").get(guild.id, name);
+            if (row) return interaction.editReply({ content: '❌ هذه العشيرة موجودة.' });
+            db.prepare("INSERT INTO clans (guild_id, name, owner, members, created_at) VALUES (?, ?, ?, ?, datetime('now'))")
+                .run(guild.id, name, user.id, JSON.stringify([user.id]));
+            logEvent(guild.id, 'clan_create', `${user.tag} أنشأ عشيرة ${name}`, 0x00BFFF);
+            return interaction.editReply({ content: `✅ تم إنشاء عشيرة **${name}**` });
+        }
+        if (sub === 'معلومات') {
+            const name = options.getString('الاسم');
+            const row = db.prepare("SELECT * FROM clans WHERE guild_id = ? AND name = ?").get(guild.id, name);
+            if (!row) return interaction.editReply({ content: '❌ العشيرة غير موجودة.' });
             const members = JSON.parse(row.members);
             const embed = new EmbedBuilder().setTitle(`🏴 عشيرة ${row.name}`).setColor(0xFF0000)
                 .addFields(
@@ -787,1023 +976,258 @@ client.on('messageCreate', async (message) => {
                     { name: 'الأعضاء', value: members.map(id => `<@${id}>`).join(', ') || 'لا يوجد', inline: false },
                     { name: 'المستوى', value: String(row.level), inline: true }
                 );
-            message.channel.send({ embeds: [embed] });
+            return interaction.editReply({ embeds: [embed] });
         }
     }
 
-    // ---- المزارع ----
-    if (command === 'farm') {
-        const sub = args[0];
-        if (sub === 'plant') {
-            const crop = args[1];
-            if (!crop) return message.reply('❌ المحاصيل: قمح, ذرة, طماطم, بطاطس.');
+    // ================== أمر المزرعة ==================
+    if (commandName === 'مزرعة') {
+        const sub = options.getSubcommand();
+        if (sub === 'زرع') {
+            const crop = options.getString('محصول');
             const times = { قمح: 60, ذرة: 120, طماطم: 180, بطاطس: 240 };
-            if (!times[crop]) return message.reply('❌ محصول غير معروف.');
             const now = Date.now();
             const ready = now + times[crop] * 1000;
-            db.prepare("INSERT INTO farms (user_id, guild_id, crop, planted_at, ready_at) VALUES (?, ?, ?, ?, ?)").run(message.author.id, message.guild.id, crop, String(now), String(ready));
-            message.reply(`🌱 زرعت **${crop}**، ستكون جاهزة بعد ${times[crop]} ثانية.`);
-        } else if (sub === 'harvest') {
-            const row = db.prepare("SELECT crop, ready_at FROM farms WHERE user_id = ? AND guild_id = ? AND status = 'growing'").get(message.author.id, message.guild.id);
-            if (!row) return message.reply('❌ ليس لديك أي محصول.');
+            db.prepare("INSERT INTO farms (user_id, guild_id, crop, planted_at, ready_at) VALUES (?, ?, ?, ?, ?)")
+                .run(user.id, guild.id, crop, String(now), String(ready));
+            return interaction.editReply({ content: `🌱 زرعت **${crop}**، ستكون جاهزة بعد ${times[crop]} ثانية.` });
+        }
+        if (sub === 'حصاد') {
+            const row = db.prepare("SELECT crop, ready_at FROM farms WHERE user_id = ? AND guild_id = ? AND status = 'growing'").get(user.id, guild.id);
+            if (!row) return interaction.editReply({ content: '❌ ليس لديك أي محصول.' });
             const now = Date.now();
             if (now < parseInt(row.ready_at)) {
                 const remain = Math.ceil((parseInt(row.ready_at) - now) / 1000);
-                return message.reply(`⏳ المحصول جاهز بعد ${remain} ثانية.`);
+                return interaction.editReply({ content: `⏳ المحصول جاهز بعد ${remain} ثانية.` });
             }
             const rewards = { قمح: 10, ذرة: 20, طماطم: 30, بطاطس: 40 };
             const amount = rewards[row.crop] || 10;
-            updateBalance(message.author.id, message.guild.id, amount);
-            db.prepare("UPDATE farms SET status = 'harvested' WHERE user_id = ? AND guild_id = ?").run(message.author.id, message.guild.id);
-            message.reply(`✅ حصدت **${row.crop}** وحصلت على **${amount}** عملة!`);
+            updateBalance(user.id, guild.id, amount);
+            db.prepare("UPDATE farms SET status = 'harvested' WHERE user_id = ? AND guild_id = ?").run(user.id, guild.id);
+            return interaction.editReply({ content: `✅ حصدت **${row.crop}** وحصلت على **${amount}** عملة!` });
         }
     }
 
-    // ---- السجون ----
-    if (command === 'jail') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.ModerateMembers)) return message.reply('❌ لا تملك صلاحية.');
-        const target = message.mentions.members.first();
-        const duration = parseInt(args[1]) || 60;
-        const reason = args.slice(2).join(' ') || 'لا يوجد سبب';
-        if (!target) return message.reply('❌ حدد عضواً.');
-        const release = Date.now() + duration * 1000;
-        db.prepare("INSERT INTO prisons (user_id, guild_id, jailed_at, release_at, reason) VALUES (?, ?, ?, ?, ?)").run(target.id, message.guild.id, String(Date.now()), String(release), reason);
-        try { await target.timeout(duration * 1000, reason); } catch(e) {}
-        message.reply(`🔒 تم سجن ${target.user.tag} لمدة ${duration} ثانية.`);
-    }
-
-    if (command === 'unjail') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.ModerateMembers)) return message.reply('❌ لا تملك صلاحية.');
-        const target = message.mentions.members.first();
-        if (!target) return message.reply('❌ حدد عضواً.');
-        db.prepare("DELETE FROM prisons WHERE user_id = ? AND guild_id = ?").run(target.id, message.guild.id);
-        try { await target.timeout(null); } catch(e) {}
-        message.reply(`✅ تم إطلاق سراح ${target.user.tag}`);
-    }
-
-    // ---- البنوك ----
-    if (command === 'bank') {
-        const sub = args[0];
-        if (sub === 'deposit') {
-            const amount = parseInt(args[1]);
-            if (!amount || amount <= 0) return message.reply('❌ أدخل مبلغاً موجباً.');
-            const bal = getBalance(message.author.id, message.guild.id);
-            if (bal < amount) return message.reply('❌ رصيدك غير كافٍ.');
-            updateBalance(message.author.id, message.guild.id, -amount);
-            db.prepare("UPDATE economy SET bank = bank + ? WHERE user_id = ? AND guild_id = ?").run(amount, message.author.id, message.guild.id);
-            message.reply(`💰 أودعت **${amount}** عملة في البنك.`);
-        } else if (sub === 'withdraw') {
-            const amount = parseInt(args[1]);
-            if (!amount || amount <= 0) return message.reply('❌ أدخل مبلغاً موجباً.');
-            const row = db.prepare("SELECT bank FROM economy WHERE user_id = ? AND guild_id = ?").get(message.author.id, message.guild.id);
-            if (!row || row.bank < amount) return message.reply('❌ رصيد البنك غير كافٍ.');
-            db.prepare("UPDATE economy SET bank = bank - ? WHERE user_id = ? AND guild_id = ?").run(amount, message.author.id, message.guild.id);
-            updateBalance(message.author.id, message.guild.id, amount);
-            message.reply(`💰 سحبت **${amount}** عملة من البنك.`);
-        } else if (sub === 'loan') {
-            const amount = parseInt(args[1]);
-            if (!amount || amount < 100 || amount > 10000) return message.reply('❌ المبلغ بين 100 و 10000.');
-            const interest = Math.floor(amount * 0.1);
-            const due = Date.now() + 7 * 24 * 60 * 60 * 1000;
-            db.prepare("INSERT INTO loans (user_id, guild_id, amount, interest, due_date) VALUES (?, ?, ?, ?, ?)").run(message.author.id, message.guild.id, amount, interest, String(due));
-            updateBalance(message.author.id, message.guild.id, amount);
-            message.reply(`🏦 حصلت على قرض **${amount}** عملة (فائدة: ${interest})، مستحق خلال 7 أيام.`);
-        }
-    }
-
-    // ---- الاستثمارات ----
-    if (command === 'invest') {
-        const amount = parseInt(args[0]);
-        if (!amount || amount < 100) return message.reply('❌ الحد الأدنى 100 عملة.');
-        const bal = getBalance(message.author.id, message.guild.id);
-        if (bal < amount) return message.reply('❌ رصيد غير كافٍ.');
-        const profit = Math.floor(amount * (Math.random() * 0.2 + 0.05));
-        const end = Date.now() + 24 * 60 * 60 * 1000;
-        db.prepare("INSERT INTO investments (user_id, guild_id, amount, profit, start_date, end_date) VALUES (?, ?, ?, ?, ?, ?)").run(message.author.id, message.guild.id, amount, profit, String(Date.now()), String(end));
-        updateBalance(message.author.id, message.guild.id, -amount);
-        message.reply(`📈 استثمرت **${amount}** عملة، الربح المتوقع **${profit}** خلال 24 ساعة.`);
-    }
-
-    // ---- المزادات ----
-    if (command === 'auction') {
-        const sub = args[0];
-        if (sub === 'create') {
-            const item = args.slice(1, -1).join(' ');
-            const starting = parseInt(args[args.length - 1]);
-            if (!item || !starting) return message.reply('❌ استخدم: !auction create <عنصر> <سعر_بدء>');
+    // ================== أمر المزاد ==================
+    if (commandName === 'مزاد') {
+        const sub = options.getSubcommand();
+        if (sub === 'إنشاء') {
+            const item = options.getString('عنصر');
+            const starting = options.getInteger('سعر_بدء');
             const end = Date.now() + 3600000;
-            db.prepare("INSERT INTO auctions (guild_id, item, seller, starting_bid, current_bid, end_time) VALUES (?, ?, ?, ?, ?, ?)").run(message.guild.id, item, message.author.id, starting, starting, String(end));
-            message.reply(`🔨 تم بدء مزاد لـ **${item}** بسعر ${starting} عملة.`);
-        } else if (sub === 'bid') {
-            const id = parseInt(args[1]);
-            const amount = parseInt(args[2]);
-            if (!id || !amount) return message.reply('❌ استخدم: !auction bid <id> <مبلغ>');
-            const row = db.prepare("SELECT item, current_bid, bidder, end_time, seller FROM auctions WHERE id = ? AND status = 'active'").get(id);
-            if (!row) return message.reply('❌ المزاد غير موجود.');
-            if (Date.now() > parseInt(row.end_time)) return message.reply('❌ انتهى المزاد.');
-            if (amount <= row.current_bid) return message.reply(`❌ المبلغ يجب أن يزيد عن ${row.current_bid}.`);
-            if (message.author.id === row.seller) return message.reply('❌ لا يمكنك المزايدة على عنصرك.');
-            db.prepare("UPDATE auctions SET current_bid = ?, bidder = ? WHERE id = ?").run(amount, message.author.id, id);
-            message.reply(`✅ تم المزايدة بـ **${amount}** عملة على **${row.item}**.`);
-        } else if (sub === 'end') {
-            const id = parseInt(args[1]);
-            if (!id) return message.reply('❌ استخدم: !auction end <id>');
-            const row = db.prepare("SELECT * FROM auctions WHERE id = ? AND status = 'active'").get(id);
-            if (!row) return message.reply('❌ المزاد غير موجود.');
-            if (row.seller !== message.author.id && !message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ لست المالك.');
-            if (row.bidder) {
-                updateBalance(row.bidder, message.guild.id, -row.current_bid);
-                updateBalance(row.seller, message.guild.id, row.current_bid);
-                message.reply(`🏆 فاز <@${row.bidder}> بـ **${row.item}** بمبلغ ${row.current_bid}.`);
-            } else {
-                message.reply(`❌ لا يوجد مزايدون على **${row.item}**.`);
-            }
-            db.prepare("UPDATE auctions SET status = 'ended' WHERE id = ?").run(id);
+            db.prepare("INSERT INTO auctions (guild_id, item, seller, starting_bid, current_bid, end_time) VALUES (?, ?, ?, ?, ?, ?)")
+                .run(guild.id, item, user.id, starting, starting, String(end));
+            logEvent(guild.id, 'auction_create', `${user.tag} بدأ مزاداً لـ ${item}`, 0xFFD700);
+            return interaction.editReply({ content: `🔨 تم بدء مزاد لـ **${item}** بسعر ${starting} عملة.` });
+        }
+        if (sub === 'مزايدة') {
+            const id = options.getInteger('معرف');
+            const amount = options.getInteger('مبلغ');
+            const row = db.prepare("SELECT item, current_bid, seller FROM auctions WHERE id = ? AND status = 'active'").get(id);
+            if (!row) return interaction.editReply({ content: '❌ المزاد غير موجود.' });
+            if (amount <= row.current_bid) return interaction.editReply({ content: `❌ المبلغ يجب أن يزيد عن ${row.current_bid}.` });
+            if (user.id === row.seller) return interaction.editReply({ content: '❌ لا يمكنك المزايدة على عنصرك.' });
+            db.prepare("UPDATE auctions SET current_bid = ?, bidder = ? WHERE id = ?").run(amount, user.id, id);
+            return interaction.editReply({ content: `✅ تم المزايدة بـ **${amount}** عملة على **${row.item}**.` });
         }
     }
 
-    // ---- الألقاب ----
-    if (command === 'title') {
-        const sub = args[0];
-        if (sub === 'set') {
-            const title = args.slice(1).join(' ');
-            if (!title) return message.reply('❌ أدخل لقباً.');
-            db.prepare("INSERT OR REPLACE INTO titles (user_id, guild_id, title) VALUES (?, ?, ?)").run(message.author.id, message.guild.id, title);
-            message.reply(`✅ تم تعيين لقبك: **${title}**`);
-        } else if (sub === 'show') {
-            const row = db.prepare("SELECT title FROM titles WHERE user_id = ? AND guild_id = ?").get(message.author.id, message.guild.id);
-            if (row) message.reply(`🏷️ لقبك: **${row.title}**`);
-            else message.reply('❌ ليس لديك لقب.');
+    // ================== أمر المالك ==================
+    if (commandName === 'مالك') {
+        const ownerId = 'YOUR_OWNER_ID';
+        if (user.id !== ownerId) {
+            return interaction.editReply({ content: '❌ هذا الأمر مقيد للمالك فقط.', ephemeral: true });
         }
-    }
-
-    // ---- الردود التلقائية ----
-    if (command === 'addauto') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ لا تملك صلاحية.');
-        const trigger = args[0];
-        const response = args.slice(1).join(' ');
-        if (!trigger || !response) return message.reply('❌ استخدم: !addauto <كلمة> <رد>');
-        db.prepare("INSERT OR REPLACE INTO auto_responders (guild_id, trigger, response) VALUES (?, ?, ?)").run(message.guild.id, trigger.toLowerCase(), response);
-        message.reply(`✅ تم إضافة رد تلقائي لـ **${trigger}**`);
-    }
-
-    // ---- الأحداث ----
-    if (command === 'event') {
-        const sub = args[0];
-        if (sub === 'create') {
-            const name = args[1];
-            const date = args[2];
-            const desc = args.slice(3).join(' ');
-            if (!name || !date || !desc) return message.reply('❌ استخدم: !event create <اسم> <تاريخ> <وصف>');
-            db.prepare("INSERT INTO events (guild_id, name, description, date, channel_id, created_by) VALUES (?, ?, ?, ?, ?, ?)").run(message.guild.id, name, desc, date, message.channel.id, message.author.id);
-            message.reply(`✅ تم إنشاء حدث **${name}** في ${date}`);
-        } else if (sub === 'list') {
-            const rows = db.prepare("SELECT id, name, date FROM events WHERE guild_id = ?").all(message.guild.id);
-            if (!rows || rows.length === 0) return message.reply('📭 لا توجد أحداث.');
-            const list = rows.map(r => `#${r.id} ${r.name} - ${r.date}`).join('\n');
-            message.reply(`📅 الأحداث:\n${list}`);
-        }
-    }
-
-    // ---- الألوان المخصصة ----
-    if (command === 'color') {
-        const hex = args[0];
-        if (!hex || !/^#[0-9A-F]{6}$/i.test(hex)) return message.reply('❌ أدخل لوناً بصيغة #RRGGBB');
-        db.prepare("INSERT OR REPLACE INTO custom_colors (user_id, guild_id, color_hex) VALUES (?, ?, ?)").run(message.author.id, message.guild.id, hex);
-        message.reply(`🎨 تم تعيين لونك إلى ${hex}`);
-    }
-
-    // ---- المهام اليومية ----
-    if (command === 'quest') {
-        const sub = args[0];
-        const now = new Date().toISOString().slice(0,10);
-        if (sub === 'daily') {
-            const row = db.prepare("SELECT progress, status FROM quests WHERE user_id = ? AND guild_id = ? AND type = 'daily' AND date = ?").get(message.author.id, message.guild.id, now);
-            if (row && row.status === 'completed') return message.reply('✅ أكملت مهمتك اليومية.');
-            if (!row) {
-                const tasks = ['أرسل 10 رسائل', 'تفاعل مع 5 رسائل', 'اربح 100 عملة'];
-                const task = tasks[Math.floor(Math.random() * tasks.length)];
-                db.prepare("INSERT INTO quests (user_id, guild_id, name, description, reward, type, target, progress, status, date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?)").run(message.author.id, message.guild.id, 'مهمة يومية', task, 50, 'daily', 1, 0, now);
-                message.reply(`📋 مهمتك اليومية: ${task} (مكافأة: 50 عملة)`);
-            } else {
-                message.reply(`📋 تقدمك: ${row.progress} / 1`);
-            }
-        } else if (sub === 'claim') {
-            const row = db.prepare("SELECT reward, status FROM quests WHERE user_id = ? AND guild_id = ? AND type = 'daily' AND status = 'active'").get(message.author.id, message.guild.id);
-            if (!row) return message.reply('❌ ليس لديك مهمة نشطة.');
-            if (row.status !== 'completed') return message.reply('❌ لم تكمل المهمة بعد.');
-            updateBalance(message.author.id, message.guild.id, row.reward);
-            db.prepare("UPDATE quests SET status = 'claimed' WHERE user_id = ? AND guild_id = ? AND type = 'daily'").run(message.author.id, message.guild.id);
-            message.reply(`✅ حصلت على ${row.reward} عملة!`);
-        }
-    }
-
-    // ---- الإنجازات ----
-    if (command === 'achievement') {
-        const sub = args[0];
-        if (sub === 'unlock') {
-            if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ لا تملك صلاحية.');
-            const target = message.mentions.members.first();
-            const name = args.slice(2).join(' ');
-            if (!target || !name) return message.reply('❌ استخدم: !achievement unlock @user <اسم>');
-            db.prepare("INSERT INTO achievements (user_id, guild_id, achievement_name, unlocked_at) VALUES (?, ?, ?, datetime('now'))").run(target.id, message.guild.id, name);
-            message.reply(`🏅 تم منح إنجاز ${name} لـ ${target.user.tag}`);
-        } else if (sub === 'list') {
-            const member = message.mentions.members.first() || message.member;
-            const rows = db.prepare("SELECT achievement_name, unlocked_at FROM achievements WHERE user_id = ? AND guild_id = ?").all(member.id, message.guild.id);
-            if (!rows || rows.length === 0) return message.reply(`📭 ${member.user.tag} ليس لديه إنجازات.`);
-            const list = rows.map(r => `${r.achievement_name} (${r.unlocked_at})`).join('\n');
-            message.reply(`🏅 إنجازات ${member.user.tag}:\n${list}`);
-        }
-    }
-
-    // ---- الأدوار المؤقتة ----
-    if (command === 'temprole') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ لا تملك صلاحية.');
-        const target = message.mentions.members.first();
-        const role = message.mentions.roles.first();
-        const duration = parseInt(args[2]) || 3600;
-        if (!target || !role) return message.reply('❌ استخدم: !temprole @user @دور <ثواني>');
-        try {
-            await target.roles.add(role);
-            const expiry = Date.now() + duration * 1000;
-            db.prepare("INSERT INTO temp_roles (user_id, guild_id, role_id, expiry_time) VALUES (?, ?, ?, ?)").run(target.id, message.guild.id, role.id, String(expiry));
-            message.reply(`✅ تم منح ${role.name} لـ ${target.user.tag} لمدة ${duration} ثانية.`);
-            setTimeout(async () => {
-                const row = db.prepare("SELECT * FROM temp_roles WHERE user_id = ? AND guild_id = ? AND role_id = ?").get(target.id, message.guild.id, role.id);
-                if (row) {
-                    try { await target.roles.remove(role); } catch(e) {}
-                    db.prepare("DELETE FROM temp_roles WHERE user_id = ? AND guild_id = ? AND role_id = ?").run(target.id, message.guild.id, role.id);
-                    message.channel.send(`⏳ انتهت صلاحية دور ${role.name} لـ ${target.user.tag}`);
-                }
-            }, duration * 1000);
-        } catch(e) { message.reply('❌ فشل منح الدور.'); }
-    }
-
-    // ---- الأدوار التفاعلية ----
-    if (command === 'reactionrole') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ لا تملك صلاحية.');
-        const sub = args[0];
-        if (sub === 'add') {
-            const msgId = args[1];
-            const role = message.mentions.roles.first();
-            const emoji = args[3];
-            if (!msgId || !role || !emoji) return message.reply('❌ استخدم: !reactionrole add <message_id> @دور <إيموجي>');
-            db.prepare("INSERT INTO reaction_roles (guild_id, message_id, role_id, emoji) VALUES (?, ?, ?, ?)").run(message.guild.id, msgId, role.id, emoji);
-            message.reply(`✅ تم ربط الإيموجي ${emoji} بالدور ${role.name}`);
-            try { const msg = await message.channel.messages.fetch(msgId); await msg.react(emoji); } catch(e) {}
-        } else if (sub === 'remove') {
-            const id = parseInt(args[1]);
-            if (!id) return message.reply('❌ استخدم: !reactionrole remove <id>');
-            db.prepare("DELETE FROM reaction_roles WHERE id = ? AND guild_id = ?").run(id, message.guild.id);
-            message.reply('✅ تم الحذف.');
-        } else if (sub === 'list') {
-            const rows = db.prepare("SELECT id, message_id, role_id, emoji FROM reaction_roles WHERE guild_id = ?").all(message.guild.id);
-            if (!rows || rows.length === 0) return message.reply('📭 لا توجد أدوار تفاعلية.');
-            const list = rows.map(r => `#${r.id} - ${r.emoji} -> <@&${r.role_id}>`).join('\n');
-            message.reply(`📋 الأدوار التفاعلية:\n${list}`);
-        }
-    }
-
-    // ---- إحصائيات الأعضاء ----
-    if (command === 'mystats') {
-        const member = message.mentions.members.first() || message.member;
-        const stats = getUserStats(member.id, message.guild.id);
-        const embed = new EmbedBuilder().setTitle(`📊 إحصائيات ${member.user.tag}`).setColor(0x00BFFF)
-            .addFields(
-                { name: 'رسائل', value: String(stats.messages), inline: true },
-                { name: 'دقائق صوتية', value: String(stats.voice_minutes), inline: true },
-                { name: 'تفاعلات أعطيتها', value: String(stats.reactions_given), inline: true },
-                { name: 'تفاعلات تلقيتها', value: String(stats.reactions_received), inline: true }
-            );
-        message.channel.send({ embeds: [embed] });
-    }
-
-    if (command === 'topstats') {
-        const rows = db.prepare("SELECT user_id, messages, voice_minutes FROM member_stats WHERE guild_id = ? ORDER BY messages DESC LIMIT 10").all(message.guild.id);
-        if (!rows || rows.length === 0) return message.reply('📭 لا توجد بيانات.');
-        const desc = rows.map((r, i) => `#${i+1} <@${r.user_id}> - رسائل: ${r.messages} | صوت: ${r.voice_minutes}`).join('\n');
-        const embed = new EmbedBuilder().setTitle('🏆 ترتيب النشاط').setDescription(desc).setColor(0xFFD700);
-        message.channel.send({ embeds: [embed] });
-    }
-
-    // ---- الحظر المتقدم ----
-    if (command === 'advban') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ لا تملك صلاحية.');
-        const target = message.mentions.members.first();
-        const duration = parseInt(args[1]) || 3600;
-        const reason = args.slice(2).join(' ') || 'لا يوجد سبب';
-        if (!target) return message.reply('❌ حدد عضواً.');
-        try {
-            await target.ban({ reason });
-            db.prepare("INSERT OR REPLACE INTO advanced_bans (user_id, guild_id, reason, duration, banned_at) VALUES (?, ?, ?, ?, datetime('now'))").run(target.id, message.guild.id, reason, duration);
-            message.reply(`🔨 تم حظر ${target.user.tag} لمدة ${duration} ثانية.`);
-            setTimeout(async () => {
-                const row = db.prepare("SELECT * FROM advanced_bans WHERE user_id = ? AND guild_id = ?").get(target.id, message.guild.id);
-                if (row) {
-                    try { await message.guild.bans.remove(target.id); } catch(e) {}
-                    db.prepare("DELETE FROM advanced_bans WHERE user_id = ? AND guild_id = ?").run(target.id, message.guild.id);
-                    message.channel.send(`🔓 تم رفع الحظر التلقائي عن ${target.user.tag}`);
-                }
-            }, duration * 1000);
-        } catch(e) { message.reply('❌ فشل الحظر.'); }
-    }
-
-    if (command === 'unbanadv') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ لا تملك صلاحية.');
-        const target = args[0];
-        if (!target) return message.reply('❌ أدخل معرف العضو.');
-        db.prepare("DELETE FROM advanced_bans WHERE user_id = ? AND guild_id = ?").run(target, message.guild.id);
-        try { await message.guild.bans.remove(target); } catch(e) {}
-        message.reply(`✅ تم رفع الحظر عن <@${target}>`);
-    }
-
-    // ---- مكافآت الانضمام ----
-    if (command === 'joinreward') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ لا تملك صلاحية.');
-        const sub = args[0];
-        if (sub === 'set') {
-            const role = message.mentions.roles.first();
-            const amount = parseInt(args[2]);
-            if (!role || !amount) return message.reply('❌ استخدم: !joinreward set @دور <مبلغ>');
-            db.prepare("INSERT OR REPLACE INTO join_rewards (guild_id, role_id, reward_amount) VALUES (?, ?, ?)").run(message.guild.id, role.id, amount);
-            message.reply(`✅ سيتم منح ${role.name} مبلغ ${amount} عملة عند الانضمام.`);
-        } else if (sub === 'remove') {
-            db.prepare("DELETE FROM join_rewards WHERE guild_id = ?").run(message.guild.id);
-            message.reply('✅ تم إلغاء مكافآت الانضمام.');
-        }
-    }
-
-    // ---- اليانصيب ----
-    if (command === 'lottery') {
-        const sub = args[0];
-        if (sub === 'buy') {
-            const ticketCost = 50;
-            const bal = getBalance(message.author.id, message.guild.id);
-            if (bal < ticketCost) return message.reply(`❌ تحتاج ${ticketCost} عملة لشراء تذكرة.`);
-            updateBalance(message.author.id, message.guild.id, -ticketCost);
-            const number = Math.floor(Math.random() * 1000) + 1;
-            const prize = Math.floor(Math.random() * 200) + 100;
-            db.prepare("INSERT INTO lottery (guild_id, ticket_owner, ticket_number, prize_amount, draw_date) VALUES (?, ?, ?, ?, datetime('now', '+1 day'))").run(message.guild.id, message.author.id, number, prize);
-            message.reply(`🎟️ اشتريت تذكرة يانصيب رقم ${number}، الجائزة ${prize} عملة. سيتم السحب غداً.`);
-        } else if (sub === 'draw') {
-            if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ لا تملك صلاحية.');
-            const rows = db.prepare("SELECT id, ticket_owner, prize_amount FROM lottery WHERE guild_id = ? AND status = 'active'").all(message.guild.id);
-            if (!rows || rows.length === 0) return message.reply('📭 لا تذاكر.');
-            const winner = rows[Math.floor(Math.random() * rows.length)];
-            updateBalance(winner.ticket_owner, message.guild.id, winner.prize_amount);
-            db.prepare("UPDATE lottery SET status = 'drawn' WHERE id = ?").run(winner.id);
-            message.reply(`🎉 فاز <@${winner.ticket_owner}> بجائزة ${winner.prize_amount} عملة!`);
-        }
-    }
-
-    // ---- التداول ----
-    if (command === 'trade') {
-        const sub = args[0];
-        if (sub === 'send') {
-            const target = message.mentions.members.first();
-            const amount = parseInt(args[2]);
-            if (!target || !amount || amount <= 0) return message.reply('❌ استخدم: !trade send @user <مبلغ>');
-            const bal = getBalance(message.author.id, message.guild.id);
-            if (bal < amount) return message.reply('❌ رصيد غير كافٍ.');
-            db.prepare("INSERT INTO trades (guild_id, sender_id, receiver_id, amount, created_at) VALUES (?, ?, ?, ?, datetime('now'))").run(message.guild.id, message.author.id, target.id, amount);
-            message.reply(`📤 طلب تداول بقيمة ${amount} عملة إلى ${target}`);
-            target.send(`📨 ${message.author.tag} يريد إرسال ${amount} عملة إليك. استخدم !trade accept <id> أو !trade reject <id>`).catch(() => {});
-        } else if (sub === 'accept') {
-            const id = parseInt(args[1]);
-            if (!id) return message.reply('❌ استخدم: !trade accept <id>');
-            const row = db.prepare("SELECT sender_id, receiver_id, amount FROM trades WHERE id = ? AND guild_id = ? AND status = 'pending'").get(id, message.guild.id);
-            if (!row) return message.reply('❌ طلب غير موجود.');
-            if (row.receiver_id !== message.author.id) return message.reply('❌ هذا ليس لك.');
-            const senderBal = getBalance(row.sender_id, message.guild.id);
-            if (senderBal < row.amount) return message.reply('❌ المرسل ليس لديه رصيد كافٍ.');
-            updateBalance(row.sender_id, message.guild.id, -row.amount);
-            updateBalance(row.receiver_id, message.guild.id, row.amount);
-            db.prepare("UPDATE trades SET status = 'completed' WHERE id = ?").run(id);
-            message.reply(`✅ تم إتمام التداول بقيمة ${row.amount} عملة.`);
-        } else if (sub === 'reject') {
-            const id = parseInt(args[1]);
-            if (!id) return message.reply('❌ استخدم: !trade reject <id>');
-            db.prepare("UPDATE trades SET status = 'rejected' WHERE id = ? AND receiver_id = ?").run(id, message.author.id);
-            message.reply('❌ تم رفض التداول.');
-        } else if (sub === 'list') {
-            const rows = db.prepare("SELECT id, sender_id, amount, created_at FROM trades WHERE receiver_id = ? AND status = 'pending'").all(message.author.id);
-            if (!rows || rows.length === 0) return message.reply('📭 لا توجد طلبات تداول.');
-            const list = rows.map(r => `#${r.id} - من <@${r.sender_id}> - ${r.amount} عملة`).join('\n');
-            message.reply(`📋 طلبات التداول:\n${list}`);
-        }
-    }
-
-    // ---- البطولات ----
-    if (command === 'tournament') {
-        const sub = args[0];
-        if (sub === 'create') {
-            if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ لا تملك صلاحية.');
-            const name = args[1];
-            const prize = parseInt(args[2]);
-            if (!name || !prize) return message.reply('❌ استخدم: !tournament create <اسم> <جائزة>');
-            db.prepare("INSERT INTO tournaments (guild_id, name, prize, participants, created_at) VALUES (?, ?, ?, '[]', datetime('now'))").run(message.guild.id, name, prize);
-            message.reply(`🏆 تم إنشاء بطولة ${name} بجائزة ${prize} عملة.`);
-        } else if (sub === 'join') {
-            const row = db.prepare("SELECT id, participants, prize FROM tournaments WHERE guild_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1").get(message.guild.id);
-            if (!row) return message.reply('❌ لا توجد بطولة نشطة.');
-            const participants = JSON.parse(row.participants);
-            if (participants.includes(message.author.id)) return message.reply('❌ أنت مشترك بالفعل.');
-            participants.push(message.author.id);
-            db.prepare("UPDATE tournaments SET participants = ? WHERE id = ?").run(JSON.stringify(participants), row.id);
-            message.reply(`✅ انضممت للبطولة ${row.prize} عملة.`);
-        } else if (sub === 'draw') {
-            if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ لا تملك صلاحية.');
-            const row = db.prepare("SELECT id, participants, prize FROM tournaments WHERE guild_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1").get(message.guild.id);
-            if (!row) return message.reply('❌ لا توجد بطولة.');
-            const participants = JSON.parse(row.participants);
-            if (participants.length < 2) return message.reply('❌ عدد المشاركين غير كافٍ.');
-            const winner = participants[Math.floor(Math.random() * participants.length)];
-            updateBalance(winner, message.guild.id, row.prize);
-            db.prepare("UPDATE tournaments SET status = 'finished' WHERE id = ?").run(row.id);
-            message.reply(`🏆 الفائز هو <@${winner}> وحصل على ${row.prize} عملة!`);
-        }
-    }
-
-    // ---- أوامر إضافية ----
-    if (command === 'purge') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.ManageMessages)) return message.reply('❌ لا تملك صلاحية.');
-        const count = parseInt(args[0]) || 10;
-        if (count > 100) count = 100;
-        try { await message.channel.bulkDelete(count, true); message.reply(`✅ تم حذف ${count} رسالة.`).then(m => setTimeout(() => m.delete(), 3000)); } catch(e) { message.reply('❌ فشل الحذف.'); }
-    }
-
-    if (command === 'tempchannel') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.ManageChannels)) return message.reply('❌ لا تملك صلاحية.');
-        const name = args.join(' ') || 'temp-' + Date.now();
-        const channel = await message.guild.channels.create({ name, type: ChannelType.GuildText });
-        message.reply(`✅ تم إنشاء قناة مؤقتة: ${channel}`);
-        setTimeout(async () => { try { await channel.delete(); } catch(e) {} message.channel.send(`⏳ تم حذف القناة المؤقتة ${name}`); }, 60000);
-    }
-
-    if (command === 'randomuser') {
-        const members = message.guild.members.cache.filter(m => !m.user.bot);
-        if (members.size === 0) return message.reply('📭 لا يوجد أعضاء.');
-        const randomMember = members.random();
-        message.reply(`🎲 العضو العشوائي: ${randomMember.user.tag}`);
-    }
-
-    if (command === 'servertime') {
-        const now = new Date();
-        message.reply(`🕒 الوقت الحالي: ${now.toLocaleString('ar-EG')}`);
-    }
-
-    if (command === 'userid') {
-        const member = message.mentions.members.first() || message.member;
-        message.reply(`🆔 معرف ${member.user.tag}: ${member.id}`);
-    }
-
-    if (command === 'channelid') {
-        message.reply(`🆔 معرف القناة: ${message.channel.id}`);
-    }
-
-    if (command === 'votebutton') {
-        const question = args.join(' ') || 'تصويت';
-        const row = new ActionRowBuilder()
-            .addComponents(
-                new ButtonBuilder().setCustomId('vote_yes').setLabel('نعم').setStyle(ButtonStyle.Success),
-                new ButtonBuilder().setCustomId('vote_no').setLabel('لا').setStyle(ButtonStyle.Danger)
-            );
-        const embed = new EmbedBuilder().setTitle('🗳️ تصويت').setDescription(question).setColor(0x00BFFF);
-        await message.channel.send({ embeds: [embed], components: [row] });
-    }
-
-    if (command === 'weekly') {
-        const week = moment().week();
-        const row = db.prepare("SELECT weekly FROM economy WHERE user_id = ? AND guild_id = ?").get(message.author.id, message.guild.id);
-        if (row && row.weekly === String(week)) return message.reply('❌ حصلت على مكافأتك الأسبوعية.');
-        const amount = Math.floor(Math.random() * 300) + 200;
-        updateBalance(message.author.id, message.guild.id, amount);
-        db.prepare("UPDATE economy SET weekly = ? WHERE user_id = ? AND guild_id = ?").run(String(week), message.author.id, message.guild.id);
-        message.reply(`📅 مكافأة أسبوعية: **${amount}** عملة!`);
-    }
-
-    if (command === 'profile') {
-        const member = message.mentions.members.first() || message.member;
-        const bal = getBalance(member.id, message.guild.id);
-        const { level } = getXp(member.id, message.guild.id);
-        const row = db.prepare("SELECT title FROM titles WHERE user_id = ? AND guild_id = ?").get(member.id, message.guild.id);
-        const title = row ? row.title : 'لا يوجد';
-        const embed = new EmbedBuilder().setTitle(`👤 ملف ${member.user.tag}`).setThumbnail(member.displayAvatarURL()).setColor(0x2F3136)
-            .addFields(
-                { name: 'رصيد', value: `${bal} عملة`, inline: true },
-                { name: 'مستوى', value: String(level), inline: true },
-                { name: 'لقب', value: title, inline: true }
-            );
-        message.channel.send({ embeds: [embed] });
-    }
-
-    // ---- أوامر المالك ----
-    if (command === 'eval') {
-        if (message.author.id !== 'YOUR_OWNER_ID') return message.reply('❌ ليس لديك صلاحية.');
-        try {
-            const result = eval(args.join(' '));
-            message.reply(`📊 النتيجة: \`\`\`js\n${result}\n\`\`\``);
-        } catch(e) {
-            message.reply(`❌ خطأ: ${e.message}`);
-        }
-    }
-
-    // ---- أوامر أخرى ----
-    if (command === 'hunt') {
-        const animals = ['🦌 غزال', '🐗 خنزير', '🐇 أرنب', '🦅 نسر', '🐺 ذئب'];
-        const animal = animals[Math.floor(Math.random() * animals.length)];
-        const success = Math.random() < 0.6;
-        if (success) {
-            const reward = Math.floor(Math.random() * 30) + 10;
-            updateBalance(message.author.id, message.guild.id, reward);
-            message.reply(`🏹 اصطدت **${animal}** وحصلت على ${reward} عملة.`);
-        } else {
-            message.reply(`❌ فشلت في الصيد، حاول مرة أخرى.`);
-        }
-    }
-
-    if (command === 'medal') {
-        const medals = ['🥇', '🥈', '🥉', '🏅', '🎖️'];
-        const medal = medals[Math.floor(Math.random() * medals.length)];
-        db.prepare("INSERT INTO cards (user_id, guild_id, card_type, rarity, acquired_at) VALUES (?, ?, ?, 'وسمة', datetime('now'))").run(message.author.id, message.guild.id, medal);
-        message.reply(`🏅 حصلت على وسمة ${medal}!`);
-    }
-
-    if (command === 'horoscope') {
-        const signs = ['الحمل', 'الثور', 'الجوزاء', 'السرطان', 'الأسد', 'العذراء', 'الميزان', 'العقرب', 'القوس', 'الجدي', 'الدلو', 'الحوت'];
-        const sign = args.join(' ') || signs[Math.floor(Math.random() * signs.length)];
-        const fortunes = ['اليوم يوم ممتاز', 'كن حذراً', 'الحظ معك', 'توقع مفاجأة', 'ابتسم للحياة'];
-        message.reply(`🔮 برج ${sign}: ${fortunes[Math.floor(Math.random() * fortunes.length)]}`);
-    }
-
-    if (command === 'card') {
-        const types = ['🔥', '💎', '🌟', '🃏', '🎴'];
-        const rarities = ['عادي', 'نادر', 'نادر جداً', 'أسطوري'];
-        const type = types[Math.floor(Math.random() * types.length)];
-        const rarity = rarities[Math.floor(Math.random() * rarities.length)];
-        db.prepare("INSERT INTO cards (user_id, guild_id, card_type, rarity, acquired_at) VALUES (?, ?, ?, ?, datetime('now'))").run(message.author.id, message.guild.id, type, rarity);
-        message.reply(`🃏 حصلت على بطاقة ${type} (${rarity})!`);
-    }
-
-    if (command === 'refer') {
-        const target = message.mentions.members.first();
-        if (!target || target.id === message.author.id) return message.reply('❌ حدد عضواً آخر.');
-        const row = db.prepare("SELECT * FROM referrals WHERE user_id = ? AND guild_id = ?").get(target.id, message.guild.id);
-        if (row) return message.reply(`❌ ${target} تمت إحالته بالفعل.`);
-        db.prepare("INSERT INTO referrals (user_id, guild_id, referred_by, reward_claimed) VALUES (?, ?, ?, 0)").run(target.id, message.guild.id, message.author.id);
-        updateBalance(message.author.id, message.guild.id, 20);
-        message.reply(`✅ تمت إحالة ${target.user.tag} وحصلت على 20 عملة!`);
-    }
-
-    if (command === 'backup') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ لا تملك صلاحية.');
-        if (args[0] === 'create') {
-            const data = JSON.stringify(message.guild);
-            db.prepare("INSERT INTO backups (guild_id, data, created_at) VALUES (?, ?, datetime('now'))").run(message.guild.id, data);
-            message.reply('✅ تم إنشاء نسخة احتياطية.');
-        } else if (args[0] === 'restore') {
-            const row = db.prepare("SELECT data FROM backups WHERE guild_id = ? ORDER BY created_at DESC LIMIT 1").get(message.guild.id);
-            if (!row) return message.reply('❌ لا توجد نسخ احتياطية.');
-            message.reply('✅ تم استعادة آخر نسخة احتياطية.');
-        }
-    }
-
-    if (command === 'invites') {
-        const target = message.mentions.members.first() || message.member;
-        const rows = db.prepare("SELECT code, uses FROM invites WHERE user_id = ? AND guild_id = ?").all(target.id, message.guild.id);
-        if (!rows || rows.length === 0) return message.reply(`📭 ${target.user.tag} ليس لديه دعوات.`);
-        const desc = rows.map(r => `كود: ${r.code} (استخدامات: ${r.uses})`).join('\n');
-        const embed = new EmbedBuilder().setTitle(`📨 دعوات ${target.user.tag}`).setDescription(desc).setColor(0x00BFFF);
-        message.channel.send({ embeds: [embed] });
-    }
-
-    if (command === 'challenge') {
-        const challenges = ['اكتب 100 كلمة', 'اربح 200 عملة', 'أرسل 20 رسالة'];
-        const challenge = challenges[Math.floor(Math.random() * challenges.length)];
-        message.reply(`🎯 تحديك اليوم: ${challenge}`);
-    }
-
-    if (command === 'quickpoll') {
-        const question = args.join(' ');
-        if (!question) return message.reply('❌ أدخل سؤالاً.');
-        const embed = new EmbedBuilder().setTitle('📊 تصويت سريع').setDescription(question).setColor(0x00FF00);
-        const msg = await message.channel.send({ embeds: [embed] });
-        await msg.react('👍');
-        await msg.react('👎');
-    }
-
-    if (command === 'notify') {
-        const msgText = args.join(' ');
-        if (!msgText) return message.reply('❌ أدخل رسالة الإشعار.');
-        message.guild.members.cache.forEach(m => {
-            m.send(`🔔 إشعار من السيرفر: ${msgText}`).catch(() => {});
-        });
-        message.reply('✅ تم إرسال الإشعارات.');
-    }
-
-    if (command === 'activity') {
-        const count = message.guild.members.cache.filter(m => m.presence?.status === 'online').size;
-        message.reply(`📊 عدد الأعضاء النشطين: ${count}`);
-    }
-
-    if (command === 'botinfo') {
-        const embed = new EmbedBuilder().setTitle('🤖 معلومات البوت').setColor(0x2F3136)
-            .addFields(
-                { name: 'اسم البوت', value: client.user.tag, inline: true },
-                { name: 'عدد السيرفرات', value: String(client.guilds.cache.size), inline: true },
-                { name: 'عدد الأعضاء', value: String(client.guilds.cache.reduce((a, g) => a + g.memberCount, 0)), inline: true },
-                { name: 'وقت التشغيل', value: moment.duration(process.uptime(), 'seconds').humanize(), inline: true }
-            );
-        message.channel.send({ embeds: [embed] });
-    }
-
-    if (command === 'join') {
-        if (message.member.voice.channel) {
-            await message.member.voice.channel.join();
-            message.reply('🔊 تم الدخول إلى القناة الصوتية.');
-        }
-    }
-
-    if (command === 'leave') {
-        if (message.guild.members.me.voice.channel) {
-            message.guild.members.me.voice.disconnect();
-            message.reply('🔇 تم الخروج من القناة الصوتية.');
-        }
-    }
-
-    if (command === 'blacklist') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ لا تملك صلاحية.');
-        if (args[0] === 'add') {
-            const word = args[1];
-            if (!word) return message.reply('❌ أدخل كلمة.');
-            db.prepare("INSERT OR REPLACE INTO bad_words (guild_id, word) VALUES (?, ?)").run(message.guild.id, word.toLowerCase());
-            message.reply(`✅ تم حظر كلمة **${word}**`);
-        } else if (args[0] === 'remove') {
-            const word = args[1];
-            if (!word) return message.reply('❌ أدخل كلمة.');
-            db.prepare("DELETE FROM bad_words WHERE guild_id = ? AND word = ?").run(message.guild.id, word.toLowerCase());
-            message.reply(`✅ تم رفع الحظر عن **${word}**`);
-        }
-    }
-
-    if (command === 'calendar') {
-        const now = moment().format('YYYY-MM-DD');
-        const embed = new EmbedBuilder().setTitle('📅 التقويم').setDescription(`اليوم: ${now}`).setColor(0x00BFFF);
-        message.channel.send({ embeds: [embed] });
-    }
-
-    if (command === 'randomcolor') {
-        const hex = '#' + Math.floor(Math.random() * 16777215).toString(16).padStart(6, '0');
-        db.prepare("INSERT OR REPLACE INTO custom_colors (user_id, guild_id, color_hex) VALUES (?, ?, ?)").run(message.author.id, message.guild.id, hex);
-        message.reply(`🎨 لونك العشوائي: ${hex}`);
-    }
-
-    if (command === 'dailyreward') {
-        const now = new Date().toISOString().slice(0,10);
-        const row = db.prepare("SELECT daily FROM economy WHERE user_id = ? AND guild_id = ?").get(message.author.id, message.guild.id);
-        if (row && row.daily === now) return message.reply('❌ حصلت عليها اليوم.');
-        const amount = Math.floor(Math.random() * 150) + 50;
-        updateBalance(message.author.id, message.guild.id, amount);
-        db.prepare("UPDATE economy SET daily = ? WHERE user_id = ? AND guild_id = ?").run(now, message.author.id, message.guild.id);
-        message.reply(`🎁 حصلت على ${amount} عملة!`);
-    }
-
-    if (command === 'secret') {
-        const secret = args[0];
-        if (secret === 'admin') {
-            if (message.author.id === 'YOUR_OWNER_ID') {
-                message.channel.send('🔐 تم تفعيل وضع المشرف الخارق.');
-            } else {
-                message.reply('❌ ليس لديك صلاحية.');
+        const sub = options.getSubcommand();
+        if (sub === 'تقييم') {
+            const code = options.getString('كود');
+            try {
+                const result = eval(code);
+                return interaction.editReply({ content: `📊 النتيجة: \`\`\`js\n${result}\n\`\`\`` });
+            } catch (e) {
+                return interaction.editReply({ content: `❌ خطأ: ${e.message}` });
             }
         }
+        if (sub === 'إعادة_تحميل') {
+            await registerCommands();
+            return interaction.editReply({ content: '✅ تم إعادة تحميل الأوامر.' });
+        }
     }
 
-    if (command === 'selfvc') {
-        if (!message.member.voice.channel) return message.reply('❌ أنت لست في قناة صوتية.');
-        const vc = message.member.voice.channel;
-        const row = db.prepare("SELECT * FROM self_channels WHERE guild_id = ? AND owner_id = ?").get(message.guild.id, message.author.id);
-        if (row) return message.reply('❌ لديك بالفعل قناة ذاتية.');
-        const name = args.join(' ') || 'قناة ' + message.author.username;
-        try {
-            vc.setName(name);
-            db.prepare("INSERT INTO self_channels (guild_id, channel_id, owner_id, created_at) VALUES (?, ?, ?, datetime('now'))").run(message.guild.id, vc.id, message.author.id);
-            message.reply(`✅ تم تخصيص القناة باسم: ${name}`);
-        } catch(e) { message.reply('❌ فشل تغيير الاسم.'); }
+    // ================== أمر بينغ (اختصار) ==================
+    if (commandName === 'بينغ') {
+        return interaction.editReply({ content: `🏓 Pong! ${client.ws.ping}ms` });
     }
+});
 
-    if (command === 'contest') {
-        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ لا تملك صلاحية.');
-        const prize = parseInt(args[0]);
-        const question = args.slice(1).join(' ');
-        if (!prize || !question) return message.reply('❌ استخدم: !contest <جائزة> <سؤال>');
-        const embed = new EmbedBuilder().setTitle('🏆 مسابقة جديدة!').setDescription(question).setColor(0xFFD700).addFields({ name: 'الجائزة', value: `${prize} عملة` });
-        const msg = await message.channel.send({ embeds: [embed] });
-        await msg.react('✅');
-        db.prepare("INSERT INTO contests (guild_id, channel_id, question, prize, status) VALUES (?, ?, ?, ?, 'active')").run(message.guild.id, message.channel.id, question, prize);
-    }
-
-    // ================== أمر المساعدة الشامل ==================
-    if (command === 'help' || command === 'h') {
-        const sub = args[0];
-        const embed = new EmbedBuilder()
-            .setTitle('📚 قائمة الأوامر - البوت الخارق')
-            .setDescription('إليك جميع الأوامر المتاحة، مقسمة حسب التصنيفات. استخدم `!help <اسم_الأمر>` للحصول على شرح تفصيلي.')
-            .setColor(0x00BFFF)
-            .setFooter({ text: `طلب بواسطة ${message.author.tag}`, iconURL: message.author.displayAvatarURL() });
-
-        if (sub) {
-            const commandInfo = {
-                'kick': 'طرد عضو من السيرفر (تحتاج صلاحية Kick Members)',
-                'ban': 'حظر عضو من السيرفر (تحتاج صلاحية Ban Members)',
-                'unban': 'رفع الحظر عن عضو',
-                'mute': 'كتم عضو لمدة محددة (بالثواني)',
-                'unmute': 'رفع الكتم عن عضو',
-                'warn': 'إصدار تحذير لعضو',
-                'warnings': 'عرض تحذيرات عضو',
-                'clearwarns': 'مسح جميع تحذيرات عضو (للمشرفين)',
-                'purge': 'حذف عدد معين من الرسائل (الحد الأقصى 100)',
-                'balance': 'عرض رصيدك أو رصيد عضو آخر',
-                'daily': 'الحصول على المكافأة اليومية',
-                'work': 'العمل لكسب عملات إضافية',
-                'rob': 'محاولة سرقة عملات من عضو آخر (مخاطرة)',
-                'slot': 'لعب ماكينة الحظ (رهان)',
-                'give': 'إعطاء عملات لعضو (للمشرفين)',
-                'shop': 'عرض المتجر',
-                'buy': 'شراء عنصر من المتجر',
-                'weekly': 'الحصول على المكافأة الأسبوعية',
-                'dailyreward': 'الحصول على مكافأة يومية إضافية',
-                'bank': 'إيداع/سحب من البنك، أو الحصول على قرض (استخدم !bank deposit/withdraw/loan)',
-                'invest': 'استثمار عملات لتحقيق أرباح',
-                'rank': 'عرض مستواك أو مستوى عضو آخر',
-                'leaderboard': 'عرض ترتيب المستويات في السيرفر',
-                'levelrole': 'ربط دور بمستوى معين (للمشرفين)',
-                'ticket': 'فتح تذكرة دعم جديدة',
-                'close': 'إغلاق التذكرة الحالية (للمشرفين)',
-                'setwelcome': 'تعيين قناة الترحيب ورسالتها (للمشرفين)',
-                'setgoodbye': 'تعيين قناة الوداع ورسالتها (للمشرفين)',
-                'setautorole': 'تعيين دور تلقائي للقادمين الجدد (للمشرفين)',
-                'setlog': 'تعيين قناة السجلات (للمشرفين)',
-                'addcmd': 'إضافة أمر مخصص جديد (للمشرفين)',
-                'delcmd': 'حذف أمر مخصص (للمشرفين)',
-                'cmds': 'عرض جميع الأوامر المخصصة في السيرفر',
-                'poll': 'إنشاء استطلاع تفاعلي',
-                'quickpoll': 'إنشاء تصويت سريع (👍/👎)',
-                'giveaway': 'بدء هدية جديدة (للمشرفين)',
-                'remind': 'تعيين تذكير بعد فترة زمنية',
-                'remindrepeat': 'تعيين تذكير متكرر كل فترة زمنية',
-                '8ball': 'اسأل كرة الحظ سؤالاً',
-                'roll': 'رمي نرد عشوائي',
-                'flip': 'قلب عملة (وجه / كتابة)',
-                'meme': 'جلب ميم عشوائي من الإنترنت',
-                'weather': 'عرض الطقس في مدينة معينة',
-                'news': 'عرض أهم الأخبار اليوم',
-                'hunt': 'اصطد حيواناً واحصل على عملات',
-                'card': 'احصل على بطاقة عشوائية نادرة',
-                'medal': 'احصل على وسمة عشوائية',
-                'horoscope': 'توقعات الأبراج اليومية',
-                'play': 'تشغيل أغنية من يوتيوب',
-                'stop': 'إيقاف الموسيقى ومسح القائمة',
-                'skip': 'تخطي الأغنية الحالية',
-                'queue': 'عرض قائمة التشغيل',
-                'marry': 'الزواج من عضو آخر',
-                'divorce': 'الطلاق من زوجك/زوجتك',
-                'married': 'عرض جميع الزيجات في السيرفر',
-                'clan': 'إدارة العشائر (إنشاء، معلومات، دعوة) - استخدم !clan create/info',
-                'farm': 'زراعة وحصاد المحاصيل (استخدم !farm plant/harvest)',
-                'jail': 'سجن عضو لمدة محددة (للمشرفين)',
-                'unjail': 'إطلاق سراح عضو مسجون (للمشرفين)',
-                'auction': 'إدارة المزادات (إنشاء، مزايدة، إنهاء) - استخدم !auction create/bid/end',
-                'title': 'تعيين أو عرض لقبك (استخدم !title set/show)',
-                'addauto': 'إضافة رد تلقائي لكلمة معينة (للمشرفين)',
-                'event': 'إنشاء أو عرض الأحداث (استخدم !event create/list)',
-                'color': 'تعيين لون مخصص لاسمك (بصيغة #RRGGBB)',
-                'randomcolor': 'تعيين لون عشوائي لاسمك',
-                'quest': 'إدارة المهام اليومية (استخدم !quest daily/claim)',
-                'achievement': 'منح أو عرض الإنجازات (استخدم !achievement unlock/list)',
-                'temprole': 'منح دور مؤقت لعضو (للمشرفين)',
-                'reactionrole': 'إدارة الأدوار التفاعلية (استخدم !reactionrole add/remove/list)',
-                'mystats': 'عرض إحصائياتك في السيرفر',
-                'topstats': 'عرض ترتيب الأعضاء حسب النشاط',
-                'advban': 'حظر عضو مع مدة زمنية تلقائية (للمشرفين)',
-                'unbanadv': 'رفع الحظر المتقدم عن عضو (للمشرفين)',
-                'joinreward': 'تعيين مكافأة لعند الانضمام (للمشرفين)',
-                'lottery': 'شراء تذكرة يانصيب أو سحب الجائزة (استخدم !lottery buy/draw)',
-                'trade': 'إرسال أو قبول طلبات التداول (استخدم !trade send/accept/reject/list)',
-                'tournament': 'إنشاء أو الانضمام إلى بطولات (استخدم !tournament create/join/draw)',
-                'raidmode': 'تفعيل وضع الحماية من الهجمات (للمشرفين)',
-                'userinfo': 'عرض معلومات مفصلة عن عضو',
-                'serverinfo': 'عرض معلومات عن السيرفر',
-                'ping': 'اختبار سرعة استجابة البوت',
-                'botinfo': 'عرض معلومات عن البوت',
-                'tempchannel': 'إنشاء قناة نصية مؤقتة (للمشرفين)',
-                'randomuser': 'اختيار عضو عشوائي من السيرفر',
-                'servertime': 'عرض الوقت الحالي للسيرفر',
-                'userid': 'عرض معرف عضو',
-                'channelid': 'عرض معرف القناة الحالية',
-                'votebutton': 'إنشاء تصويت بأزرار تفاعلية',
-                'profile': 'عرض ملف شخصي مختصر',
-                'join': 'دخول البوت إلى القناة الصوتية الخاصة بك',
-                'leave': 'خروج البوت من القناة الصوتية',
-                'blacklist': 'إدارة الكلمات المحظورة (للمشرفين)',
-                'notify': 'إرسال إشعار لجميع أعضاء السيرفر (للمشرفين)',
-                'activity': 'عرض عدد الأعضاء النشطين',
-                'calendar': 'عرض التاريخ الحالي',
-                'challenge': 'تحدي عشوائي لك',
-                'refer': 'إحالة عضو جديد والحصول على مكافأة',
-                'eval': 'تنفيذ كود JavaScript (للمالك فقط)',
-                'secret': 'أوامر سرية (للمالك فقط)',
-                'backup': 'إنشاء أو استعادة نسخة احتياطية (للمشرفين)',
-                'selfvc': 'تخصيص اسم قناة صوتية خاصة بك',
-                'contest': 'إنشاء مسابقة جديدة (للمشرفين)',
-                'invites': 'عرض الدعوات التي أنشأتها'
-            };
-
-            const info = commandInfo[sub];
-            if (info) {
-                const detailEmbed = new EmbedBuilder()
-                    .setTitle(`📖 شرح الأمر: !${sub}`)
-                    .setDescription(info)
-                    .setColor(0x00FF00)
-                    .addFields({ name: 'الاستخدام', value: `\`!${sub}\` أو \`!${sub} <معاملات>\``, inline: false })
-                    .setFooter({ text: 'استخدم !help لعرض جميع الأوامر' });
-                return message.channel.send({ embeds: [detailEmbed] });
-            } else {
-                return message.reply(`❌ لا يوجد أمر باسم **${sub}**. استخدم \`!help\` لعرض جميع الأوامر.`);
+// ================== أحداث التفاعل (الأزرار والقوائم) ==================
+client.on(Events.InteractionCreate, async (interaction) => {
+    if (interaction.isButton()) {
+        if (interaction.customId === 'close_ticket') {
+            if (!interaction.channel.name.startsWith('تذكرة-')) {
+                return interaction.reply({ content: '❌ هذه ليست تذكرة.', ephemeral: true });
             }
+            db.prepare("UPDATE tickets SET status = 'closed' WHERE channel_id = ?").run(interaction.channel.id);
+            await interaction.reply('🔒 سيتم حذف التذكرة خلال 5 ثوانٍ.');
+            setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
         }
-
-        const categories = {
-            '🛠️ الإدارة': ['kick', 'ban', 'unban', 'mute', 'unmute', 'warn', 'warnings', 'clearwarns', 'purge', 'raidmode'],
-            '💰 الاقتصاد': ['balance', 'daily', 'work', 'rob', 'slot', 'give', 'shop', 'buy', 'weekly', 'dailyreward'],
-            '🏦 البنوك والاستثمارات': ['bank', 'invest'],
-            '📊 المستويات': ['rank', 'leaderboard', 'levelrole'],
-            '🎫 التذاكر': ['ticket', 'close'],
-            '🎵 الموسيقى': ['play', 'stop', 'skip', 'queue'],
-            '🎮 الألعاب': ['8ball', 'roll', 'flip', 'meme', 'weather', 'news', 'hunt', 'card', 'medal', 'horoscope'],
-            '🏴 العشائر': ['clan'],
-            '🌾 المزارع': ['farm'],
-            '🔒 السجون': ['jail', 'unjail'],
-            '🔨 المزادات': ['auction'],
-            '🏷️ الألقاب': ['title'],
-            '🤖 الردود التلقائية': ['addauto'],
-            '📅 الأحداث': ['event'],
-            '🎨 الألوان': ['color', 'randomcolor'],
-            '📋 المهام اليومية': ['quest'],
-            '🏅 الإنجازات': ['achievement'],
-            '⏳ الأدوار المؤقتة': ['temprole'],
-            '🔄 الأدوار التفاعلية': ['reactionrole'],
-            '📊 الإحصائيات': ['mystats', 'topstats'],
-            '🔨 الحظر المتقدم': ['advban', 'unbanadv'],
-            '🎁 مكافآت الانضمام': ['joinreward'],
-            '🎰 اليانصيب': ['lottery'],
-            '🤝 التداول': ['trade'],
-            '🏆 البطولات': ['tournament'],
-            '💬 الأوامر المخصصة': ['addcmd', 'delcmd', 'cmds'],
-            '📌 الاستطلاعات': ['poll', 'quickpoll'],
-            '🎁 الهدايا': ['giveaway'],
-            '⏰ التذكيرات': ['remind', 'remindrepeat'],
-            '📝 الترحيب والوداع': ['setwelcome', 'setgoodbye', 'setautorole'],
-            '📜 السجلات': ['setlog'],
-            '🛡️ الحماية': ['raidmode'],
-            'ℹ️ المعلومات': ['userinfo', 'serverinfo', 'ping', 'botinfo', 'profile'],
-            '➕ أوامر إضافية': ['tempchannel', 'randomuser', 'servertime', 'userid', 'channelid', 'votebutton', 'join', 'leave', 'blacklist', 'notify', 'activity', 'calendar', 'challenge', 'refer', 'selfvc', 'contest', 'invites', 'backup'],
-            '🔐 أوامر المالك': ['eval', 'secret']
-        };
-
-        let description = '';
-        for (const [category, commands] of Object.entries(categories)) {
-            const cmdList = commands.map(cmd => `\`!${cmd}\``).join(' ');
-            description += `**${category}**\n${cmdList}\n\n`;
+        if (interaction.customId === 'ticket_claim') {
+            await interaction.reply({ content: '📌 تم تولي التذكرة.', ephemeral: true });
+            await interaction.channel.send(`📌 تم تولي التذكرة بواسطة ${interaction.user.tag}`);
         }
-
-        embed.setDescription(description);
-        embed.addFields({ name: '📖 للحصول على شرح مفصل', value: 'استخدم `!help <اسم_الأمر>` لعرض شرح الأمر بالتفصيل.' });
-
-        if (description.length > 4000) {
-            let parts = [];
-            let currentPart = '';
-            for (const [category, commands] of Object.entries(categories)) {
-                const cmdList = commands.map(cmd => `\`!${cmd}\``).join(' ');
-                const block = `**${category}**\n${cmdList}\n\n`;
-                if (currentPart.length + block.length > 4000) {
-                    parts.push(currentPart);
-                    currentPart = block;
-                } else {
-                    currentPart += block;
+        if (interaction.customId === 'verify_button') {
+            const row = db.prepare("SELECT role_id FROM verify_roles WHERE guild_id = ?").get(interaction.guild.id);
+            if (row) {
+                const role = interaction.guild.roles.cache.get(row.role_id);
+                if (role) {
+                    await interaction.member.roles.add(role);
+                    await interaction.reply({ content: `✅ تم التحقق ومنحك دور ${role.name}`, ephemeral: true });
                 }
             }
-            if (currentPart) parts.push(currentPart);
-
-            const firstEmbed = new EmbedBuilder()
-                .setTitle('📚 قائمة الأوامر (الجزء 1)')
-                .setDescription(parts[0])
-                .setColor(0x00BFFF);
-            await message.channel.send({ embeds: [firstEmbed] });
-
-            for (let i = 1; i < parts.length; i++) {
-                await message.channel.send(`📚 **قائمة الأوامر (الجزء ${i + 1})**\n${parts[i]}`);
-            }
-
-            await message.channel.send('📖 استخدم `!help <اسم_الأمر>` للحصول على شرح مفصل.');
-        } else {
-            await message.channel.send({ embeds: [embed] });
         }
     }
 
-}); // نهاية messageCreate
+    if (interaction.isStringSelectMenu()) {
+        if (interaction.customId === 'ticket_menu') {
+            const category = interaction.values[0];
+            const topic = `طلب من القائمة - ${category}`;
+            const ticketCategory = interaction.guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name === 'تذاكر');
+            if (!ticketCategory) {
+                return interaction.reply({ content: '❌ لا توجد فئة "تذاكر".', ephemeral: true });
+            }
+            const overwrites = [
+                { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+                { id: interaction.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] },
+                { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }
+            ];
+            const channelName = `تذكرة-${interaction.user.username}`;
+            const ticketChannel = await interaction.guild.channels.create({
+                name: channelName,
+                type: ChannelType.GuildText,
+                parent: ticketCategory,
+                permissionOverwrites: overwrites,
+                topic: `📌 ${category} - ${topic}`
+            });
+            db.prepare("INSERT INTO tickets (guild_id, channel_id, user_id, topic, status, created_at, category, priority) VALUES (?, ?, ?, ?, 'open', datetime('now'), ?, 'عادي')")
+                .run(interaction.guild.id, ticketChannel.id, interaction.user.id, topic, category);
+            const embed = new EmbedBuilder()
+                .setTitle('🎫 تذكرة جديدة')
+                .setDescription(`**الموضوع:** ${topic}\n**القسم:** ${category}`)
+                .setColor(0x00BFFF)
+                .addFields(
+                    { name: 'أنشأها', value: interaction.user.tag, inline: true },
+                    { name: 'الحالة', value: '🟢 مفتوحة', inline: true }
+                );
+            const row = new ActionRowBuilder()
+                .addComponents(
+                    new ButtonBuilder().setCustomId('close_ticket').setLabel('🔒 إغلاق التذكرة').setStyle(ButtonStyle.Danger),
+                    new ButtonBuilder().setCustomId('ticket_claim').setLabel('📌 تولي').setStyle(ButtonStyle.Primary)
+                );
+            await ticketChannel.send({ content: `<@${interaction.user.id}>`, embeds: [embed], components: [row] });
+            await interaction.reply({ content: `✅ تم فتح تذكرة: ${ticketChannel}`, ephemeral: true });
+        }
+    }
+});
 
-// ================== الأحداث ==================
-client.on('guildMemberAdd', async (member) => {
-    const welcome = db.prepare("SELECT channel_id, message FROM welcome WHERE guild_id = ?").get(member.guild.id);
+// ================== أحداث العضوية ==================
+client.on(Events.GuildMemberAdd, async (member) => {
+    // الترحيب
+    const welcome = db.prepare("SELECT channel_id, message, image_url FROM welcome WHERE guild_id = ?").get(member.guild.id);
     if (welcome) {
         const channel = member.guild.channels.cache.get(welcome.channel_id);
         if (channel) {
             const msg = welcome.message.replace(/{user}/g, member.toString()).replace(/{server}/g, member.guild.name);
-            channel.send(msg);
+            const embed = new EmbedBuilder()
+                .setTitle('👋 مرحباً!')
+                .setDescription(msg)
+                .setColor(0x00FF00)
+                .setThumbnail(member.displayAvatarURL());
+            if (welcome.image_url) embed.setImage(welcome.image_url);
+            channel.send({ embeds: [embed] });
         }
     }
+    // الأدوار التلقائية
     const autoroles = db.prepare("SELECT role_id FROM autoroles WHERE guild_id = ?").all(member.guild.id);
-    autoroles.forEach(r => {
+    for (const r of autoroles) {
         const role = member.guild.roles.cache.get(r.role_id);
         if (role) member.roles.add(role).catch(() => {});
-    });
-    const reward = db.prepare("SELECT role_id, reward_amount FROM join_rewards WHERE guild_id = ?").get(member.guild.id);
-    if (reward) {
-        const role = member.guild.roles.cache.get(reward.role_id);
-        if (role) member.roles.add(role).catch(() => {});
-        updateBalance(member.id, member.guild.id, reward.reward_amount);
     }
-    logEvent(member.guild.id, 'member_join', `${member.user.tag} انضم إلى السيرفر.`);
+    // سجل
+    logEvent(member.guild.id, 'member_join', `${member.user.tag} انضم إلى السيرفر.`, 0x00FF00);
 });
 
-client.on('guildMemberRemove', (member) => {
-    const goodbye = db.prepare("SELECT channel_id, message FROM goodbye WHERE guild_id = ?").get(member.guild.id);
+client.on(Events.GuildMemberRemove, (member) => {
+    // الوداع
+    const goodbye = db.prepare("SELECT channel_id, message, image_url FROM goodbye WHERE guild_id = ?").get(member.guild.id);
     if (goodbye) {
         const channel = member.guild.channels.cache.get(goodbye.channel_id);
         if (channel) {
             const msg = goodbye.message.replace(/{user}/g, member.user.tag).replace(/{server}/g, member.guild.name);
-            channel.send(msg);
+            const embed = new EmbedBuilder()
+                .setTitle('👋 وداعاً!')
+                .setDescription(msg)
+                .setColor(0xFF0000)
+                .setThumbnail(member.displayAvatarURL());
+            if (goodbye.image_url) embed.setImage(goodbye.image_url);
+            channel.send({ embeds: [embed] });
         }
     }
-    logEvent(member.guild.id, 'member_leave', `${member.user.tag} غادر السيرفر.`);
+    // سجل
+    logEvent(member.guild.id, 'member_leave', `${member.user.tag} غادر السيرفر.`, 0xFF0000);
 });
 
-client.on('messageDelete', (message) => {
-    if (!message.guild || message.author?.bot) return;
-    logEvent(message.guild.id, 'message_delete', `${message.author?.tag} حذف: ${message.content?.slice(0,100) || '[ميديا]'}`);
-});
+// ================== نظام الحماية المتقدم ==================
+const messageCache = new Collection();
 
-client.on('messageUpdate', (oldMsg, newMsg) => {
-    if (!oldMsg.guild || oldMsg.author?.bot || oldMsg.content === newMsg.content) return;
-    logEvent(oldMsg.guild.id, 'message_edit', `${oldMsg.author?.tag} عدل: ${oldMsg.content?.slice(0,50)} -> ${newMsg.content?.slice(0,50)}`);
-});
+client.on(Events.MessageCreate, async (message) => {
+    if (message.author.bot || !message.guild) return;
 
-client.on('messageReactionAdd', async (reaction, user) => {
-    if (user.bot || !reaction.message.guild) return;
-    updateStat(user.id, reaction.message.guild.id, 'reactions_given', 1);
-    if (reaction.message.author && !reaction.message.author.bot) {
-        updateStat(reaction.message.author.id, reaction.message.guild.id, 'reactions_received', 1);
-    }
-    if (reaction.emoji.name === '🎉') {
-        const row = db.prepare("SELECT id, entries FROM giveaways WHERE message_id = ?").get(reaction.message.id);
-        if (row) {
-            const entries = JSON.parse(row.entries);
-            if (!entries.includes(user.id)) {
-                entries.push(user.id);
-                db.prepare("UPDATE giveaways SET entries = ? WHERE id = ?").run(JSON.stringify(entries), row.id);
+    // نظام السبام
+    const spamConfig = db.prepare("SELECT spam_threshold FROM auto_mod WHERE guild_id = ?").get(message.guild.id);
+    const threshold = spamConfig ? spamConfig.spam_threshold : 5;
+    const key = `${message.author.id}-${message.guild.id}`;
+    const now = Date.now();
+    if (!messageCache.has(key)) messageCache.set(key, []);
+    const timestamps = messageCache.get(key);
+    timestamps.push(now);
+    const recent = timestamps.filter(t => now - t < 5000);
+    messageCache.set(key, recent);
+    if (recent.length > threshold) {
+        try {
+            await message.author.timeout(60000, 'سبام');
+            const muteRole = db.prepare("SELECT role_id FROM mute_roles WHERE guild_id = ?").get(message.guild.id);
+            if (muteRole) {
+                const role = message.guild.roles.cache.get(muteRole.role_id);
+                if (role) await message.member.roles.add(role);
             }
-        }
+            logEvent(message.guild.id, 'spam', `${message.author.tag} تم كتمه بسبب السبام`, 0xFF0000);
+            await message.channel.send(`🔇 تم كتم ${message.author} بسبب السبام.`);
+        } catch (e) {}
     }
-    const rr = db.prepare("SELECT role_id FROM reaction_roles WHERE guild_id = ? AND message_id = ? AND emoji = ?").get(reaction.message.guild.id, reaction.message.id, reaction.emoji.name);
-    if (rr) {
-        const member = reaction.message.guild.members.cache.get(user.id);
-        if (member) {
-            const role = reaction.message.guild.roles.cache.get(rr.role_id);
-            if (role) member.roles.add(role).catch(() => {});
-        }
+
+    // نظام المستويات
+    if (!message.content.startsWith('/')) {
+        const xpGain = Math.floor(Math.random() * 15) + 5;
+        addXp(message.author.id, message.guild.id, xpGain);
     }
 });
 
-client.on('interactionCreate', async interaction => {
-    if (!interaction.isButton()) return;
-    if (interaction.customId === 'vote_yes') {
-        await interaction.reply({ content: '✅ تم التصويت بـ نعم', ephemeral: true });
-    } else if (interaction.customId === 'vote_no') {
-        await interaction.reply({ content: '❌ تم التصويت بـ لا', ephemeral: true });
-    } else if (interaction.customId === 'close_ticket') {
-        if (!interaction.channel.name.startsWith('ticket-')) return interaction.reply({ content: '❌ هذه ليست تذكرة.', ephemeral: true });
-        await interaction.reply('🔒 سيتم حذف التذكرة.');
-        setTimeout(() => interaction.channel.delete().catch(() => {}), 3000);
-    }
+// ================== سجلات الرسائل ==================
+client.on(Events.MessageDelete, (message) => {
+    if (!message.guild || message.author?.bot) return;
+    logEvent(message.guild.id, 'message_delete', `${message.author?.tag} حذف: ${message.content?.slice(0, 100) || '[ميديا]'}`, 0xFF6347);
 });
 
-// ================== المؤقتات ==================
+client.on(Events.MessageUpdate, (oldMsg, newMsg) => {
+    if (!oldMsg.guild || oldMsg.author?.bot || oldMsg.content === newMsg.content) return;
+    logEvent(oldMsg.guild.id, 'message_edit', `${oldMsg.author?.tag} عدل: ${oldMsg.content?.slice(0, 50)} -> ${newMsg.content?.slice(0, 50)}`, 0xFFA500);
+});
+
+// ================== التذكيرات ==================
 setInterval(() => {
     const now = Date.now();
     const reminders = db.prepare("SELECT id, user_id, channel_id, message, remind_time, repeat_interval FROM reminders WHERE remind_time <= ?").all(String(now));
-    reminders.forEach(row => {
+    for (const row of reminders) {
         const user = client.users.cache.get(row.user_id);
         const channel = client.channels.cache.get(row.channel_id);
         if (user) user.send(`⏰ تذكير: ${row.message}`).catch(() => {});
@@ -1814,29 +1238,8 @@ setInterval(() => {
         } else {
             db.prepare("DELETE FROM reminders WHERE id = ?").run(row.id);
         }
-    });
+    }
 }, 30000);
-
-setInterval(() => {
-    const now = Date.now();
-    const investments = db.prepare("SELECT user_id, guild_id, amount, profit, end_date FROM investments WHERE status = 'active' AND end_date <= ?").all(String(now));
-    investments.forEach(row => {
-        updateBalance(row.user_id, row.guild_id, row.amount + row.profit);
-        db.prepare("UPDATE investments SET status = 'completed' WHERE user_id = ? AND guild_id = ? AND end_date = ?").run(row.user_id, row.guild_id, row.end_date);
-        const user = client.users.cache.get(row.user_id);
-        if (user) user.send(`💰 استثمارك بقيمة ${row.amount} أنتج ربحاً ${row.profit}`).catch(() => {});
-    });
-}, 60000);
-
-setInterval(() => {
-    client.guilds.cache.forEach(guild => {
-        guild.members.cache.forEach(member => {
-            if (member.voice.channel) {
-                updateStat(member.id, guild.id, 'voice_minutes', 1);
-            }
-        });
-    });
-}, 60000);
 
 // ================== تشغيل البوت ==================
 client.login(TOKEN);
