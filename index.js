@@ -152,6 +152,13 @@ db.exec(`
     joined_at TEXT,
     PRIMARY KEY (clan_id, user_id)
   );
+
+  CREATE TABLE IF NOT EXISTS user_notes (
+    user_id TEXT,
+    guild_id TEXT,
+    note TEXT,
+    PRIMARY KEY (user_id, guild_id)
+  );
 `);
 
 ensureColumns();
@@ -281,6 +288,17 @@ function getClanTotalEx(clanId, guildId) {
   return total;
 }
 
+// ====================== دوال النوت ======================
+function getNote(userId, guildId) {
+  const row = db.prepare('SELECT note FROM user_notes WHERE user_id = ? AND guild_id = ?').get(userId, guildId);
+  return row ? row.note : null;
+}
+
+function setNote(userId, guildId, note) {
+  db.prepare('INSERT OR REPLACE INTO user_notes (user_id, guild_id, note) VALUES (?, ?, ?)')
+    .run(userId, guildId, note);
+}
+
 // ====================== دوال اللوق ======================
 async function logToChannel(guildId, embedData) {
   const config = getGuildConfig(guildId);
@@ -326,7 +344,6 @@ client.on('messageCreate', async (message) => {
   const userId = message.author.id;
   const config = getGuildConfig(guildId);
 
-  // أوتو لاين مع الصورة
   if (config.auto_line_enabled === 'true' && config.auto_line_channel_id && config.auto_line_text) {
     if (message.channel.id === config.auto_line_channel_id) {
       const words = config.auto_line_text.split(',').map(w => w.trim());
@@ -349,7 +366,6 @@ client.on('messageCreate', async (message) => {
     }
   }
 
-  // نظام المستويات
   let data = getUserLevel(userId, guildId);
   let xp = data.xp;
   let level = data.level;
@@ -382,39 +398,32 @@ client.on('messageCreate', async (message) => {
   }
   updateUserLevel(userId, guildId, xp, level, msgs, voice_time);
 
-  // نظام EX: كل 30 رسالة يعطي 15 نقطة ويُرسل خاص
   if (msgs % 30 === 0) {
     const newEx = addEx(userId, guildId, 15);
     try {
       await message.author.send(`🌟 حصلت على 15 نقطة EX! إجمالي نقاطك الآن: ${newEx} EX.`);
-    } catch (e) {
-      // تجاهل إذا كان الخاص مقفلاً
-    }
+    } catch (e) {}
   }
 });
 
 // ====================== نظام EX للصوت ======================
-const voiceTimers = new Map(); // key: guildId-userId, value: { joinTime, interval }
+const voiceTimers = new Map();
 
 client.on('voiceStateUpdate', async (oldState, newState) => {
   const guildId = newState.guild.id;
   const userId = newState.member.id;
   const key = `${guildId}-${userId}`;
 
-  // دخل إلى روم صوتي
   if (!oldState.channelId && newState.channelId) {
     const interval = setInterval(async () => {
-      // كل 10 دقائق (600 ثانية) نعطي 10 نقاط EX
       const currentEx = addEx(userId, guildId, 10);
       try {
         const member = newState.guild.members.cache.get(userId);
         if (member) await member.send(`🔊 حصلت على 10 نقاط EX من التواجد الصوتي! إجمالي نقاطك: ${currentEx} EX.`);
       } catch (e) {}
-    }, 600000); // 10 دقائق
+    }, 600000);
     voiceTimers.set(key, { interval });
-  }
-  // خرج من الروم
-  else if (oldState.channelId && !newState.channelId) {
+  } else if (oldState.channelId && !newState.channelId) {
     if (voiceTimers.has(key)) {
       clearInterval(voiceTimers.get(key).interval);
       voiceTimers.delete(key);
@@ -814,7 +823,6 @@ client.on('messageCreate', async (message) => {
     const count = row ? row.count : 0;
     const embed = new EmbedBuilder().setTitle('⚠️ تحذير').setColor(0xffdd00).setDescription(`${member.user.tag} تم تحذيره بسبب: ${reason}\nإجمالي التحذيرات: ${count}`);
     message.channel.send({ embeds: [embed] });
-    // إرسال خاص للمستخدم
     try {
       await member.send(`⚠️ تم تحذيرك في سيرفر **${message.guild.name}**\nالسبب: ${reason}\nإجمالي تحذيراتك: ${count}`);
     } catch (e) {}
@@ -1208,6 +1216,41 @@ client.on('messageCreate', async (message) => {
     });
   }
 
+  // ========== النوت والبروفايل ==========
+  else if (cmd === 'نوت') {
+    if (!hasPermission(message.member, message.guild.id)) {
+      return message.reply('❌ تحتاج صلاحية متحكم.');
+    }
+    const member = message.mentions.members.first();
+    if (!member) return message.reply('⚠️ منشن العضو الذي تريد كتابة ملاحظة له.');
+    const note = args.slice(1).join(' ');
+    if (!note) return message.reply('⚠️ اكتب نص الملاحظة.');
+    setNote(member.id, message.guild.id, note);
+    message.reply(`✅ تم كتابة الملاحظة لـ ${member.user.tag}: "${note}"`);
+    logToChannel(message.guild.id, {
+      title: '📝 كتابة نوت',
+      description: `**المنفذ:** ${message.author}\n**المستهدف:** ${member.user.tag}\n**النوت:** ${note}`,
+      color: 0x00ccff,
+      footer: `بواسطة ${message.author.tag}`
+    });
+  }
+
+  else if (cmd === 'بروفايل') {
+    const member = message.mentions.members.first() || message.member;
+    const note = getNote(member.id, message.guild.id);
+    const embed = new EmbedBuilder()
+      .setTitle(`👤 بروفايل ${member.user.username}`)
+      .setThumbnail(member.user.displayAvatarURL())
+      .addFields(
+        { name: '🆔 المعرف', value: member.id, inline: true },
+        { name: '📅 تاريخ الانضمام', value: member.joinedAt.toDateString(), inline: true },
+        { name: '📝 النوت', value: note || 'لا توجد ملاحظة', inline: false }
+      )
+      .setColor(0x9b59b6)
+      .setTimestamp();
+    message.channel.send({ embeds: [embed] });
+  }
+
   // ========== نظام EX والكلانات ==========
   else if (cmd === 'انشاء_كلان') {
     const name = args.join(' ');
@@ -1506,6 +1549,7 @@ client.on('messageCreate', async (message) => {
       .addFields(
         { name: '👑 نظام التحكم', value: '`متحكم @شخص`  `الغاء_متحكم @شخص`  `قائمة_المتحكمين`', inline: false },
         { name: '🏰 الكلانات وEX', value: '`انشاء_كلان` `اضافة_عضو` `طرد_عضو` `تعيين_نائب` `معلومات_كلان` `ترك_كلان`  `اعطاء_ex` `خصم_ex` `ترتيب_ex`', inline: false },
+        { name: '📝 النوت والبروفايل', value: '`نوت @مستخدم النص` (للمتحكمين)  `بروفايل @مستخدم`', inline: false },
         { name: '🎫 التذاكر', value: '`بانل`  `إغلاق`  `دور_قسم`', inline: false },
         { name: '🛡️ إدارة', value: '`حظر` `طرد` `كتم` `تحذير` `مسح` `قفل` `فتح`', inline: false },
         { name: '💰 اقتصاد', value: '`رصيد` `يومية` `تحويل` `سرقة` `مصرف` `سحب` `متجر` `شراء`', inline: false },
