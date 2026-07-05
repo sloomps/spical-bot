@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, EmbedBuilder, PermissionsBitField, ChannelType, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, PermissionsBitField, ChannelType, ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const Database = require('better-sqlite3');
 const path = require('path');
 
@@ -29,14 +29,16 @@ function ensureColumns() {
   const tableInfo = db.prepare("PRAGMA table_info(guild_config)").all();
   const existingColumns = tableInfo.map(row => row.name);
   
-  if (!existingColumns.includes('ticket_panel_image')) {
-    db.exec("ALTER TABLE guild_config ADD COLUMN ticket_panel_image TEXT");
-  }
-  if (!existingColumns.includes('ticket_welcome_image')) {
-    db.exec("ALTER TABLE guild_config ADD COLUMN ticket_welcome_image TEXT");
-  }
-  if (!existingColumns.includes('support_role_id')) {
-    db.exec("ALTER TABLE guild_config ADD COLUMN support_role_id TEXT");
+  const columnsToAdd = [
+    'ticket_panel_image', 'ticket_welcome_image', 'support_role_id',
+    'welcome_panel_text', 'level_channel_id', 'auto_line_channel_id',
+    'auto_line_text', 'auto_line_enabled'
+  ];
+  
+  for (const col of columnsToAdd) {
+    if (!existingColumns.includes(col)) {
+      db.exec(`ALTER TABLE guild_config ADD COLUMN ${col} TEXT`);
+    }
   }
 }
 
@@ -89,6 +91,7 @@ db.exec(`
     guild_id TEXT,
     user_id TEXT,
     status TEXT,
+    claimed_by TEXT,
     created_at TEXT
   );
 
@@ -139,12 +142,13 @@ function getGuildConfig(guildId) {
   let row = db.prepare('SELECT * FROM guild_config WHERE guild_id = ?').get(guildId);
   if (!row) {
     db.prepare('INSERT INTO guild_config (guild_id) VALUES (?)').run(guildId);
-    row = { guild_id: guildId, log_channel: null, welcome_channel: null, welcome_message: null, welcome_image_url: null, mute_role_id: null, warn_mute_threshold: 3, warn_kick_threshold: 5, join_role_id: null, ticket_panel_image: null, ticket_welcome_image: null, support_role_id: null };
+    row = { guild_id: guildId, log_channel: null, welcome_channel: null, welcome_message: null, welcome_image_url: null, mute_role_id: null, warn_mute_threshold: 3, warn_kick_threshold: 5, join_role_id: null, ticket_panel_image: null, ticket_welcome_image: null, support_role_id: null, welcome_panel_text: null, level_channel_id: null, auto_line_channel_id: null, auto_line_text: null, auto_line_enabled: null };
   }
   // التأكد من أن الأعمدة الجديدة موجودة في الكائن
-  if (row.ticket_panel_image === undefined) row.ticket_panel_image = null;
-  if (row.ticket_welcome_image === undefined) row.ticket_welcome_image = null;
-  if (row.support_role_id === undefined) row.support_role_id = null;
+  const defaults = { ticket_panel_image: null, ticket_welcome_image: null, support_role_id: null, welcome_panel_text: null, level_channel_id: null, auto_line_channel_id: null, auto_line_text: null, auto_line_enabled: null };
+  for (const key in defaults) {
+    if (row[key] === undefined) row[key] = defaults[key];
+  }
   return row;
 }
 
@@ -201,12 +205,28 @@ client.once('ready', () => {
   client.user.setActivity(`${PREFIX}مساعدة`, { type: 'WATCHING' });
 });
 
-// نظام المستويات
+// ====================== نظام المستويات ======================
 client.on('messageCreate', async (message) => {
   if (message.author.bot || !message.guild) return;
   const guildId = message.guild.id;
   const userId = message.author.id;
 
+  // أوتو لاين
+  const config = getGuildConfig(guildId);
+  if (config.auto_line_enabled === 'true' && config.auto_line_channel_id && config.auto_line_text) {
+    if (message.channel.id === config.auto_line_channel_id) {
+      const words = config.auto_line_text.split(',').map(w => w.trim());
+      const content = message.content.toLowerCase();
+      for (const word of words) {
+        if (content.includes(word.toLowerCase())) {
+          await message.reply(`🔁 أوتو لاين: ${config.auto_line_text}`);
+          break;
+        }
+      }
+    }
+  }
+
+  // نظام المستويات
   let data = getUserLevel(userId, guildId);
   let xp = data.xp;
   let level = data.level;
@@ -221,7 +241,15 @@ client.on('messageCreate', async (message) => {
       let eco = getEconomy(userId, guildId);
       eco.balance += 300;
       saveEconomy(userId, guildId, eco);
-      message.author.send(`🎉 مبروك مستوى ${level}! حصلت على 300 دولار إضافية.`).catch(() => {});
+      // إرسال رسالة في روم الليفل المحدد
+      if (config.level_channel_id) {
+        const levelChannel = message.guild.channels.cache.get(config.level_channel_id);
+        if (levelChannel) {
+          levelChannel.send(`🎉 مبروك ${message.author} وصلت للمستوى ${level}!`);
+        }
+      } else {
+        message.author.send(`🎉 مبروك مستوى ${level}! حصلت على 300 دولار إضافية.`).catch(() => {});
+      }
     }
     const levelRole = db.prepare('SELECT role_id FROM level_roles WHERE guild_id = ? AND level = ?').get(guildId, level);
     if (levelRole) {
@@ -232,7 +260,7 @@ client.on('messageCreate', async (message) => {
   updateUserLevel(userId, guildId, xp, level, msgs);
 });
 
-// سجلات الحذف
+// ====================== سجلات الحذف ======================
 client.on('messageDelete', async (message) => {
   if (!message.guild || message.author?.bot) return;
   const config = getGuildConfig(message.guild.id);
@@ -251,7 +279,7 @@ client.on('messageDelete', async (message) => {
   logChannel.send({ embeds: [embed] }).catch(() => {});
 });
 
-// دخول عضو
+// ====================== دخول عضو ======================
 client.on('guildMemberAdd', async (member) => {
   const config = getGuildConfig(member.guild.id);
   if (config.welcome_channel) {
@@ -288,7 +316,7 @@ client.on('guildMemberAdd', async (member) => {
   }
 });
 
-// خروج عضو
+// ====================== خروج عضو ======================
 client.on('guildMemberRemove', async (member) => {
   const config = getGuildConfig(member.guild.id);
   if (!config.log_channel) return;
@@ -303,7 +331,7 @@ client.on('guildMemberRemove', async (member) => {
   logChannel.send({ embeds: [embed] }).catch(() => {});
 });
 
-// الأدوار التفاعلية (إضافة)
+// ====================== الأدوار التفاعلية ======================
 client.on('messageReactionAdd', async (reaction, user) => {
   if (user.bot) return;
   const msg = reaction.message;
@@ -319,7 +347,6 @@ client.on('messageReactionAdd', async (reaction, user) => {
   }
 });
 
-// الأدوار التفاعلية (إزالة)
 client.on('messageReactionRemove', async (reaction, user) => {
   if (user.bot) return;
   const msg = reaction.message;
@@ -332,6 +359,46 @@ client.on('messageReactionRemove', async (reaction, user) => {
       const member = msg.guild.members.cache.get(user.id);
       if (member) member.roles.remove(role).catch(() => {});
     }
+  }
+});
+
+// ====================== معالج أزرار التذاكر ======================
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isButton()) return;
+
+  if (interaction.customId === 'close_ticket') {
+    const channel = interaction.channel;
+    if (!channel.name.startsWith('تذكرة-')) {
+      return interaction.reply({ content: '⚠️ هذه ليست قناة تذكرة.', ephemeral: true });
+    }
+    // التحقق من صلاحية الإغلاق (المالك أو المشرف)
+    const ticket = db.prepare('SELECT user_id FROM tickets WHERE channel_id = ? AND status = ?').get(channel.id, 'مفتوحة');
+    if (!ticket) return interaction.reply({ content: '❌ هذه التذكرة غير موجودة.', ephemeral: true });
+    const isOwner = interaction.user.id === ticket.user_id;
+    const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.ManageChannels);
+    if (!isOwner && !isAdmin) {
+      return interaction.reply({ content: '❌ فقط صاحب التذكرة أو المشرف يمكنه إغلاقها.', ephemeral: true });
+    }
+    await interaction.reply({ content: '🔒 جاري إغلاق التذكرة خلال 5 ثوانٍ...', ephemeral: true });
+    setTimeout(async () => {
+      await channel.delete();
+      db.prepare('UPDATE tickets SET status = ? WHERE channel_id = ?').run('مغلقة', channel.id);
+    }, 5000);
+  }
+
+  else if (interaction.customId === 'claim_ticket') {
+    const channel = interaction.channel;
+    if (!channel.name.startsWith('تذكرة-')) {
+      return interaction.reply({ content: '⚠️ هذه ليست قناة تذكرة.', ephemeral: true });
+    }
+    const ticket = db.prepare('SELECT user_id, claimed_by FROM tickets WHERE channel_id = ? AND status = ?').get(channel.id, 'مفتوحة');
+    if (!ticket) return interaction.reply({ content: '❌ هذه التذكرة غير موجودة.', ephemeral: true });
+    if (ticket.claimed_by) {
+      return interaction.reply({ content: `❌ هذه التذكرة مستلمة بالفعل بواسطة <@${ticket.claimed_by}>`, ephemeral: true });
+    }
+    db.prepare('UPDATE tickets SET claimed_by = ? WHERE channel_id = ?').run(interaction.user.id, channel.id);
+    await channel.send(`✅ تم استلام التذكرة بواسطة ${interaction.user}`);
+    await interaction.reply({ content: '✅ تم استلام التذكرة بنجاح.', ephemeral: true });
   }
 });
 
@@ -378,8 +445,8 @@ client.on('interactionCreate', async (interaction) => {
     });
 
     // حفظ التذكرة في قاعدة البيانات
-    db.prepare('INSERT INTO tickets (channel_id, guild_id, user_id, status, created_at) VALUES (?, ?, ?, ?, ?)')
-      .run(channel.id, guild.id, member.id, 'مفتوحة', new Date().toISOString());
+    db.prepare('INSERT INTO tickets (channel_id, guild_id, user_id, status, claimed_by, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(channel.id, guild.id, member.id, 'مفتوحة', null, new Date().toISOString());
 
     // ====== إرسال رسالة الترحيب في القناة مع الصورة ======
     const config = getGuildConfig(guild.id);
@@ -390,12 +457,23 @@ client.on('interactionCreate', async (interaction) => {
       .setTimestamp()
       .setFooter({ text: `🆔 معرف التذكرة: ${channel.id}` });
 
-    // إضافة الصورة إذا كانت محددة
     if (config.ticket_welcome_image) {
       welcomeEmbed.setImage(config.ticket_welcome_image);
     }
 
-    // ====== منشن دور الدعم (إن وُجد) ======
+    // ====== أزرار التذاكر ======
+    const row = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId('claim_ticket')
+          .setLabel('📥 استلام التذكرة')
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId('close_ticket')
+          .setLabel('🔒 إغلاق التذكرة')
+          .setStyle(ButtonStyle.Danger)
+      );
+
     let supportMention = '';
     if (config.support_role_id) {
       const supportRole = guild.roles.cache.get(config.support_role_id);
@@ -406,7 +484,8 @@ client.on('interactionCreate', async (interaction) => {
 
     await channel.send({ 
       content: `${member} ${supportMention}`.trim(),
-      embeds: [welcomeEmbed] 
+      embeds: [welcomeEmbed],
+      components: [row]
     });
 
     // ====== إرسال رسالة خاصة للمستخدم ======
@@ -423,7 +502,6 @@ client.on('interactionCreate', async (interaction) => {
 
     await member.send({ embeds: [dmEmbed] }).catch(() => {});
 
-    // رد على التفاعل
     await interaction.editReply({ 
       content: `✅ تم إنشاء تذكرتك بنجاح: ${channel}`,
       ephemeral: true 
@@ -697,7 +775,6 @@ client.on('messageCreate', async (message) => {
   }
 
   // ========== نظام التذاكر ==========
-  // أمر لوحة التحكم (للمشرفين)
   else if (cmd === 'بانل') {
     if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
       return message.reply('❌ هذا الأمر للمشرفين فقط.');
@@ -706,11 +783,10 @@ client.on('messageCreate', async (message) => {
     const config = getGuildConfig(message.guild.id);
     const embed = new EmbedBuilder()
       .setTitle('🎫 نظام التذاكر')
-      .setDescription('اختر القسم المناسب من القائمة المنسدلة أدناه لإنشاء تذكرة.\nسيتم إنشاء قناة خاصة بك وسيرد عليك الفريق قريباً.')
+      .setDescription(config.welcome_panel_text || 'اختر القسم المناسب من القائمة المنسدلة أدناه لإنشاء تذكرة.\nسيتم إنشاء قناة خاصة بك وسيرد عليك الفريق قريباً.')
       .setColor(0x9b59b6)
       .setFooter({ text: 'سيتم إرسال رابط التذكرة إليك في الخاص' });
 
-    // إضافة الصورة إذا كانت محددة
     if (config.ticket_panel_image) {
       embed.setImage(config.ticket_panel_image);
     }
@@ -734,7 +810,6 @@ client.on('messageCreate', async (message) => {
     message.reply('✅ تم إنشاء لوحة التذاكر.');
   }
 
-  // أمر إغلاق التذكرة (يدوياً)
   else if (cmd === 'إغلاق') {
     if (!message.member.permissions.has(PermissionsBitField.Flags.ManageChannels)) return message.reply('❌ لا تملك صلاحية.');
     const channel = message.channel;
@@ -782,6 +857,53 @@ client.on('messageCreate', async (message) => {
     }
   }
 
+  // ========== أوامر جديدة ==========
+  else if (cmd === 'قول') {
+    const text = args.join(' ');
+    if (!text) return message.reply('⚠️ اكتب النص الذي تريد أن يقوله البوت.');
+    await message.channel.send(text);
+    await message.delete().catch(() => {});
+  }
+
+  else if (cmd === 'ايمبد') {
+    const title = args[0] || 'بدون عنوان';
+    const description = args.slice(1).join(' ') || 'بدون وصف';
+    const embed = new EmbedBuilder()
+      .setTitle(title)
+      .setDescription(description)
+      .setColor(0x2ecc71)
+      .setTimestamp();
+    // التحقق من وجود رابط صورة
+    const imageMatch = description.match(/(https?:\/\/[^\s]+\.(?:png|jpg|jpeg|gif|webp))/i);
+    if (imageMatch) {
+      embed.setImage(imageMatch[1]);
+      // إزالة الرابط من الوصف
+      embed.setDescription(description.replace(imageMatch[1], '').trim() || 'بدون وصف');
+    }
+    await message.channel.send({ embeds: [embed] });
+    await message.delete().catch(() => {});
+  }
+
+  else if (cmd === 'اعلان') {
+    if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+      return message.reply('❌ هذا الأمر للمشرفين فقط.');
+    }
+    const type = args[0]?.toLowerCase();
+    const text = args.slice(1).join(' ');
+    if (!text) return message.reply('⚠️ اكتب نص الإعلان.');
+    const embed = new EmbedBuilder()
+      .setTitle('📢 إعلان')
+      .setDescription(text)
+      .setColor(0xff5500)
+      .setTimestamp()
+      .setFooter({ text: `بواسطة ${message.author.tag}` });
+    let mention = '';
+    if (type === 'everyone') mention = '@everyone';
+    else if (type === 'here') mention = '@here';
+    await message.channel.send({ content: mention, embeds: [embed] });
+    await message.delete().catch(() => {});
+  }
+
   // ========== إعدادات السيرفر ==========
   else if (cmd === 'تعيين') {
     if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return message.reply('❌ لا تملك صلاحية.');
@@ -794,16 +916,20 @@ client.on('messageCreate', async (message) => {
           { name: 'ترحيب', value: '`!تعيين ترحيب #قناة`' },
           { name: 'رسالة_ترحيب', value: '`!تعيين رسالة_ترحيب النص`' },
           { name: 'صورة_ترحيب', value: '`!تعيين صورة_ترحيب رابط`' },
+          { name: 'نص_بانل', value: '`!تعيين نص_بانل النص`' },
+          { name: 'روم_ليفل', value: '`!تعيين روم_ليفل #قناة`' },
+          { name: 'أوتو_لاين', value: '`!تعيين أوتو_لاين #قناة كلمة1,كلمة2`' },
           { name: 'دور_كتم', value: '`!تعيين دور_كتم @دور`' },
           { name: 'دور_دخول', value: '`!تعيين دور_دخول @دور`' },
           { name: 'حد_كتم', value: '`!تعيين حد_كتم عدد`' },
           { name: 'حد_طرد', value: '`!تعيين حد_طرد عدد`' },
           { name: 'رتبة_مستوى', value: '`!تعيين رتبة_مستوى المستوى @دور`' },
           { name: 'حذف_رتبة_مستوى', value: '`!تعيين حذف_رتبة_مستوى المستوى`' },
-          { name: '🖼️ صورة_بانل', value: '`!تعيين صورة_بانل رابط`' },
-          { name: '🖼️ صورة_تذكرة', value: '`!تعيين صورة_تذكرة رابط`' },
-          { name: '🎯 دور_دعم', value: '`!تعيين دور_دعم @دور`' },
-          { name: '🗑️ حذف_دور_دعم', value: '`!تعيين حذف_دور_دعم`' }
+          { name: 'صورة_بانل', value: '`!تعيين صورة_بانل رابط`' },
+          { name: 'صورة_تذكرة', value: '`!تعيين صورة_تذكرة رابط`' },
+          { name: 'دور_دعم', value: '`!تعيين دور_دعم @دور`' },
+          { name: 'حذف_دور_دعم', value: '`!تعيين حذف_دور_دعم`' },
+          { name: 'إيقاف_أوتو_لاين', value: '`!تعيين إيقاف_أوتو_لاين`' }
         );
       return message.channel.send({ embeds: [embed] });
     }
@@ -826,6 +952,25 @@ client.on('messageCreate', async (message) => {
       if (!value) return message.reply('⚠️ أدخل رابط الصورة.');
       updateGuildConfig(message.guild.id, { welcome_image_url: value });
       message.reply(`✅ تم تعيين صورة الترحيب: ${value}`);
+    } else if (sub === 'نص_بانل') {
+      if (!value) return message.reply('⚠️ أدخل النص.');
+      updateGuildConfig(message.guild.id, { welcome_panel_text: value });
+      message.reply(`✅ تم تعيين نص بانل التذاكر: ${value}`);
+    } else if (sub === 'روم_ليفل') {
+      const channel = message.mentions.channels.first();
+      if (!channel) return message.reply('⚠️ منشن القناة.');
+      updateGuildConfig(message.guild.id, { level_channel_id: channel.id });
+      message.reply(`✅ تم تعيين روم الليفل إلى ${channel}`);
+    } else if (sub === 'أوتو_لاين') {
+      const channel = message.mentions.channels.first();
+      if (!channel) return message.reply('⚠️ منشن القناة.');
+      const words = args.slice(2).join(' ');
+      if (!words) return message.reply('⚠️ أدخل الكلمات المفتاحية مفصولة بفواصل (مثال: مرحبا,سلام,اهلا)');
+      updateGuildConfig(message.guild.id, { auto_line_channel_id: channel.id, auto_line_text: words, auto_line_enabled: 'true' });
+      message.reply(`✅ تم تعيين أوتو لاين في ${channel} مع الكلمات: ${words}`);
+    } else if (sub === 'إيقاف_أوتو_لاين') {
+      updateGuildConfig(message.guild.id, { auto_line_enabled: 'false' });
+      message.reply('✅ تم إيقاف نظام أوتو لاين.');
     } else if (sub === 'دور_كتم') {
       const role = message.mentions.roles.first();
       if (!role) return message.reply('⚠️ منشن الدور.');
@@ -873,7 +1018,7 @@ client.on('messageCreate', async (message) => {
       message.reply(`✅ تم تعيين دور الدعم إلى ${role}`);
     } else if (sub === 'حذف_دور_دعم') {
       updateGuildConfig(message.guild.id, { support_role_id: null });
-      message.reply('✅ تم حذف دور الدعم. لن يتم منشن أحد عند فتح التذاكر.');
+      message.reply('✅ تم حذف دور الدعم.');
     } else {
       message.reply('⚠️ أمر غير معروف. استخدم `!تعيين` لعرض القائمة.');
     }
@@ -886,7 +1031,7 @@ client.on('messageCreate', async (message) => {
     process.exit(0);
   }
 
-  // ========== مساعدة ==========
+  // ========== مساعدة (محدثة) ==========
   else if (cmd === 'مساعدة') {
     const embed = new EmbedBuilder().setTitle('📖 قائمة الأوامر الرئيسية').setColor(0x00ff00)
       .addFields(
@@ -897,6 +1042,7 @@ client.on('messageCreate', async (message) => {
         { name: '🎁 هدايا', value: '`هدية` (للمشرفين)', inline: false },
         { name: '🎭 أدوار تفاعلية', value: '`ردود` (للمشرفين)', inline: false },
         { name: '⚙️ إعدادات السيرفر', value: '`تعيين` (للمشرفين)', inline: false },
+        { name: '📢 أوامر البوت', value: '`قول` `ايمبد` `اعلان`', inline: false },
         { name: '🎮 ترفيه', value: '`بينق` `سيرفر` `صورة` `اقتباس` `رمية`', inline: false }
       )
       .setFooter({ text: `البادئة: ${PREFIX}` });
