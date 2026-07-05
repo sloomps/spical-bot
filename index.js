@@ -24,11 +24,9 @@ const TICKET_SECTIONS = {
 const dbPath = path.join(__dirname, 'database.db');
 const db = new Database(dbPath);
 
-// دالة للتحقق من وجود أعمدة وإضافتها إن لم تكن موجودة
 function ensureColumns() {
   const tableInfo = db.prepare("PRAGMA table_info(guild_config)").all();
   const existingColumns = tableInfo.map(row => row.name);
-  
   const columnsToAdd = [
     'ticket_panel_image', 'ticket_welcome_image', 'support_role_id',
     'welcome_panel_text', 'level_channel_id', 'auto_line_channel_id',
@@ -36,7 +34,6 @@ function ensureColumns() {
     'role_owner_id', 'role_controller_id', 'role_super_admin_id',
     'role_admin_id', 'role_sub_admin_id'
   ];
-  
   for (const col of columnsToAdd) {
     if (!existingColumns.includes(col)) {
       db.exec(`ALTER TABLE guild_config ADD COLUMN ${col} TEXT`);
@@ -44,7 +41,6 @@ function ensureColumns() {
   }
 }
 
-// إنشاء الجداول
 db.exec(`
   CREATE TABLE IF NOT EXISTS guild_config (
     guild_id TEXT PRIMARY KEY,
@@ -57,7 +53,6 @@ db.exec(`
     warn_kick_threshold INTEGER DEFAULT 5,
     join_role_id TEXT
   );
-
   CREATE TABLE IF NOT EXISTS users (
     user_id TEXT,
     guild_id TEXT,
@@ -67,7 +62,6 @@ db.exec(`
     voice_time INTEGER DEFAULT 0,
     PRIMARY KEY (user_id, guild_id)
   );
-
   CREATE TABLE IF NOT EXISTS economy (
     user_id TEXT,
     guild_id TEXT,
@@ -77,7 +71,6 @@ db.exec(`
     daily_streak INTEGER DEFAULT 0,
     PRIMARY KEY (user_id, guild_id)
   );
-
   CREATE TABLE IF NOT EXISTS warns (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id TEXT,
@@ -86,7 +79,6 @@ db.exec(`
     moderator_id TEXT,
     date TEXT
   );
-
   CREATE TABLE IF NOT EXISTS tickets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     channel_id TEXT,
@@ -96,7 +88,6 @@ db.exec(`
     claimed_by TEXT,
     created_at TEXT
   );
-
   CREATE TABLE IF NOT EXISTS reaction_roles (
     message_id TEXT,
     guild_id TEXT,
@@ -104,7 +95,6 @@ db.exec(`
     emoji TEXT,
     PRIMARY KEY (message_id, emoji)
   );
-
   CREATE TABLE IF NOT EXISTS giveaways (
     message_id TEXT PRIMARY KEY,
     guild_id TEXT,
@@ -115,14 +105,12 @@ db.exec(`
     participants TEXT,
     ended INTEGER DEFAULT 0
   );
-
   CREATE TABLE IF NOT EXISTS level_roles (
     guild_id TEXT,
     level INTEGER,
     role_id TEXT,
     PRIMARY KEY (guild_id, level)
   );
-
   CREATE TABLE IF NOT EXISTS ticket_section_roles (
     guild_id TEXT,
     section_key TEXT,
@@ -131,7 +119,6 @@ db.exec(`
   );
 `);
 
-// التأكد من وجود الأعمدة الجديدة
 ensureColumns();
 
 // ====================== دوال الرتب والصلاحيات ======================
@@ -159,7 +146,6 @@ function getMemberRank(member, guildId) {
 
 function hasPermission(member, guildId, requiredRank) {
   if (!member) return false;
-  // المالك يملك كل الصلاحيات
   if (OWNER_ID && member.id === OWNER_ID) return true;
   
   const rank = getMemberRank(member, guildId);
@@ -263,7 +249,7 @@ client.once('ready', () => {
   client.user.setActivity(`${PREFIX}مساعدة`, { type: 'WATCHING' });
 });
 
-// ====================== نظام المستويات والأوتو لاين ======================
+// نظام المستويات والأوتو لاين
 client.on('messageCreate', async (message) => {
   if (message.author.bot || !message.guild) return;
   const guildId = message.guild.id;
@@ -317,7 +303,7 @@ client.on('messageCreate', async (message) => {
   updateUserLevel(userId, guildId, xp, level, msgs);
 });
 
-// ====================== سجلات الحذف ======================
+// سجلات الحذف
 client.on('messageDelete', async (message) => {
   if (!message.guild || message.author?.bot) return;
   const config = getGuildConfig(message.guild.id);
@@ -336,7 +322,7 @@ client.on('messageDelete', async (message) => {
   logChannel.send({ embeds: [embed] }).catch(() => {});
 });
 
-// ====================== دخول وخروج الأعضاء ======================
+// دخول عضو
 client.on('guildMemberAdd', async (member) => {
   const config = getGuildConfig(member.guild.id);
   if (config.welcome_channel) {
@@ -373,6 +359,7 @@ client.on('guildMemberAdd', async (member) => {
   }
 });
 
+// خروج عضو
 client.on('guildMemberRemove', async (member) => {
   const config = getGuildConfig(member.guild.id);
   if (!config.log_channel) return;
@@ -387,7 +374,7 @@ client.on('guildMemberRemove', async (member) => {
   logChannel.send({ embeds: [embed] }).catch(() => {});
 });
 
-// ====================== الأدوار التفاعلية ======================
+// الأدوار التفاعلية
 client.on('messageReactionAdd', async (reaction, user) => {
   if (user.bot) return;
   const msg = reaction.message;
@@ -906,7 +893,7 @@ client.on('messageCreate', async (message) => {
     }
   }
 
-  // ========== أوامر جديدة ==========
+  // ========== أوامر جديدة ومحسنة ==========
   else if (cmd === 'قول') {
     const text = args.join(' ');
     if (!text) return message.reply('⚠️ اكتب النص الذي تريد أن يقوله البوت.');
@@ -915,36 +902,71 @@ client.on('messageCreate', async (message) => {
   }
 
   else if (cmd === 'ايمبد') {
-    const title = args[0] || 'بدون عنوان';
-    const description = args.slice(1).join(' ') || 'بدون وصف';
+    const fullText = args.join(' ');
+    if (!fullText) return message.reply('⚠️ اكتب: `!ايمبد العنوان ، الوصف`');
+    
+    const parts = fullText.split(/[،,]\s*/).map(s => s.trim());
+    let title = 'بدون عنوان';
+    let description = fullText;
+    if (parts.length >= 2) {
+      title = parts[0];
+      description = parts.slice(1).join(' ، ');
+    }
+    
     const embed = new EmbedBuilder()
       .setTitle(title)
       .setDescription(description)
       .setColor(0x2ecc71)
       .setTimestamp();
+    
     const imageMatch = description.match(/(https?:\/\/[^\s]+\.(?:png|jpg|jpeg|gif|webp))/i);
     if (imageMatch) {
       embed.setImage(imageMatch[1]);
       embed.setDescription(description.replace(imageMatch[1], '').trim() || 'بدون وصف');
     }
+    
     await message.channel.send({ embeds: [embed] });
     await message.delete().catch(() => {});
   }
 
   else if (cmd === 'اعلان') {
-    if (!hasPermission(message.member, message.guild.id, 'admin')) return message.reply('❌ تحتاج رتبة أدمن أو أعلى.');
-    const type = args[0]?.toLowerCase();
-    const text = args.slice(1).join(' ');
-    if (!text) return message.reply('⚠️ اكتب نص الإعلان.');
+    if (!hasPermission(message.member, message.guild.id, 'admin')) {
+      return message.reply('❌ تحتاج رتبة أدمن أو أعلى.');
+    }
+    
+    const fullText = args.join(' ');
+    if (!fullText) return message.reply('⚠️ اكتب: `!اعلان [everyone|here] ، العنوان ، الوصف`');
+    
+    const parts = fullText.split(/[،,]\s*/).map(s => s.trim());
+    
+    let mentionType = null;
+    let title = '📢 إعلان';
+    let description = fullText;
+    
+    const firstPart = parts[0]?.toLowerCase();
+    if (firstPart === 'everyone' || firstPart === 'here') {
+      mentionType = firstPart;
+      parts.shift();
+    }
+    
+    if (parts.length >= 2) {
+      title = parts[0] || '📢 إعلان';
+      description = parts.slice(1).join(' ، ') || 'بدون وصف';
+    } else if (parts.length === 1) {
+      description = parts[0] || 'بدون وصف';
+    }
+    
     const embed = new EmbedBuilder()
-      .setTitle('📢 إعلان')
-      .setDescription(text)
+      .setTitle(title)
+      .setDescription(description)
       .setColor(0xff5500)
       .setTimestamp()
       .setFooter({ text: `بواسطة ${message.author.tag}` });
+    
     let mention = '';
-    if (type === 'everyone') mention = '@everyone';
-    else if (type === 'here') mention = '@here';
+    if (mentionType === 'everyone') mention = '@everyone';
+    else if (mentionType === 'here') mention = '@here';
+    
     await message.channel.send({ content: mention, embeds: [embed] });
     await message.delete().catch(() => {});
   }
