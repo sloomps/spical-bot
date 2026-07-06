@@ -536,6 +536,93 @@ client.on('messageReactionRemove', async (reaction, user) => {
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isButton()) return;
 
+  // زر فتح تذكرة بسيط
+  if (interaction.customId === 'open_ticket_simple') {
+    await interaction.deferReply({ ephemeral: true });
+    const guild = interaction.guild;
+    const member = interaction.member;
+
+    const existing = db.prepare('SELECT channel_id FROM tickets WHERE user_id = ? AND guild_id = ? AND status = ?')
+      .get(member.id, guild.id, 'مفتوحة');
+    if (existing) {
+      const ch = guild.channels.cache.get(existing.channel_id);
+      return interaction.editReply({ content: `⚠️ لديك تذكرة مفتوحة بالفعل: ${ch || 'تم حذفها'}`, ephemeral: true });
+    }
+
+    const ticketName = `تذكرة-${member.user.username}`.slice(0, 32);
+    try {
+      const channel = await guild.channels.create({
+        name: ticketName,
+        type: ChannelType.GuildText,
+        permissionOverwrites: [
+          { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+          { id: member.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory] },
+          { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory] }
+        ]
+      });
+
+      db.prepare('INSERT INTO tickets (channel_id, guild_id, user_id, status, claimed_by, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+        .run(channel.id, guild.id, member.id, 'مفتوحة', null, new Date().toISOString());
+
+      const config = getGuildConfig(guild.id);
+      const welcomeEmbed = new EmbedBuilder()
+        .setTitle('🎫 تذكرة جديدة')
+        .setDescription(`مرحباً ${member}!\n**قم بكتابة مشكلتك** بالتفصيل في هذه القناة، وسيقوم فريق الدعم بالرد عليك قريباً.`)
+        .setColor(0x00ff00)
+        .setTimestamp()
+        .setFooter({ text: `🆔 معرف التذكرة: ${channel.id}` });
+
+      if (config.ticket_welcome_image) {
+        welcomeEmbed.setImage(config.ticket_welcome_image);
+      }
+
+      const row = new ActionRowBuilder()
+        .addComponents(
+          new ButtonBuilder()
+            .setCustomId('claim_ticket')
+            .setLabel('📥 استلام التذكرة')
+            .setStyle(ButtonStyle.Primary),
+          new ButtonBuilder()
+            .setCustomId('close_ticket')
+            .setLabel('🔒 إغلاق التذكرة')
+            .setStyle(ButtonStyle.Danger)
+        );
+
+      let supportMention = '';
+      const supportRoleId = getSectionRole(guild.id, 'support');
+      if (supportRoleId) {
+        const role = guild.roles.cache.get(supportRoleId);
+        if (role) supportMention = `${role}`;
+      }
+
+      await channel.send({
+        content: `${member} ${supportMention}`.trim(),
+        embeds: [welcomeEmbed],
+        components: [row]
+      });
+
+      const dmEmbed = new EmbedBuilder()
+        .setTitle('✅ تم فتح تذكرتك')
+        .setDescription(`تم فتح تذكرة في سيرفر **${guild.name}**`)
+        .addFields({ name: '🔗 الرابط', value: `[اضغط هنا للذهاب إلى التذكرة](${channel.url})`, inline: false })
+        .setColor(0x00ff00)
+        .setTimestamp();
+      await member.send({ embeds: [dmEmbed] }).catch(() => {});
+
+      await interaction.editReply({ content: `✅ تم فتح تذكرتك بنجاح: ${channel}`, ephemeral: true });
+      logToChannel(guild.id, {
+        title: '🎫 فتح تذكرة (بسيط)',
+        description: `**المستخدم:** ${member.user.tag}\n**القناة:** ${channel.name}`,
+        color: 0x00ff00,
+        footer: `بواسطة ${member.user.tag}`
+      });
+    } catch (error) {
+      console.error(error);
+      await interaction.editReply({ content: '❌ حدث خطأ أثناء فتح التذكرة.', ephemeral: true });
+    }
+  }
+
+  // إغلاق التذكرة (الزر)
   if (interaction.customId === 'close_ticket') {
     const channel = interaction.channel;
     if (!channel.name.startsWith('تذكرة-')) {
@@ -555,7 +642,8 @@ client.on('interactionCreate', async (interaction) => {
     }, 5000);
   }
 
-  else if (interaction.customId === 'claim_ticket') {
+  // استلام التذكرة (الزر)
+  if (interaction.customId === 'claim_ticket') {
     const channel = interaction.channel;
     if (!channel.name.startsWith('تذكرة-')) {
       return interaction.reply({ content: '⚠️ هذه ليست قناة تذكرة.', ephemeral: true });
@@ -571,7 +659,7 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-// ====================== معالج القائمة المنسدلة للتذاكر ======================
+// ====================== معالج القائمة المنسدلة للتذاكر (للتوافق مع القديم) ======================
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isStringSelectMenu()) return;
   if (interaction.customId !== 'ticket_panel') return;
@@ -1037,7 +1125,7 @@ client.on('messageCreate', async (message) => {
     message.channel.send({ embeds: [embed] });
   }
 
-  // ========== نظام التذاكر ==========
+  // ========== نظام التذاكر (القوائم المنسدلة القديم) ==========
   else if (cmd === 'بانل') {
     if (!hasPermission(message.member, message.guild.id)) {
       return message.reply('❌ تحتاج صلاحية متحكم.');
@@ -1077,6 +1165,34 @@ client.on('messageCreate', async (message) => {
       color: 0x9b59b6,
       footer: `بواسطة ${message.author.tag}`
     });
+  }
+
+  else if (cmd === 'بانل_بسيط') {
+    if (!hasPermission(message.member, message.guild.id)) {
+      return message.reply('❌ تحتاج صلاحية متحكم.');
+    }
+
+    const embed = new EmbedBuilder()
+      .setTitle('🎫 # tickets >')
+      .setDescription(
+        '**Welcome to #tickets!**\n' +
+        'This is the start of the #tickets channel.\n\n' +
+        'قم بكتابة مشكلتك'
+      )
+      .setColor(0x2b2d31)
+      .setFooter({ text: 'Tickets' })
+      .setTimestamp();
+
+    const row = new ActionRowBuilder()
+      .addComponents(
+        new ButtonBuilder()
+          .setCustomId('open_ticket_simple')
+          .setLabel('📩 فتح تذكرة')
+          .setStyle(ButtonStyle.Primary)
+      );
+
+    await message.channel.send({ embeds: [embed], components: [row] });
+    message.reply('✅ تم إنشاء لوحة التذاكر البسيطة.');
   }
 
   else if (cmd === 'إغلاق') {
@@ -1550,7 +1666,7 @@ client.on('messageCreate', async (message) => {
         { name: '👑 نظام التحكم', value: '`متحكم @شخص`  `الغاء_متحكم @شخص`  `قائمة_المتحكمين`', inline: false },
         { name: '🏰 الكلانات وEX', value: '`انشاء_كلان` `اضافة_عضو` `طرد_عضو` `تعيين_نائب` `معلومات_كلان` `ترك_كلان`  `اعطاء_ex` `خصم_ex` `ترتيب_ex`', inline: false },
         { name: '📝 النوت والبروفايل', value: '`نوت @مستخدم النص` (للمتحكمين)  `بروفايل @مستخدم`', inline: false },
-        { name: '🎫 التذاكر', value: '`بانل`  `إغلاق`  `دور_قسم`', inline: false },
+        { name: '🎫 التذاكر', value: '`بانل` (قوائم منسدلة)  `بانل_بسيط` (زر واحد)  `إغلاق`  `دور_قسم`', inline: false },
         { name: '🛡️ إدارة', value: '`حظر` `طرد` `كتم` `تحذير` `مسح` `قفل` `فتح`', inline: false },
         { name: '💰 اقتصاد', value: '`رصيد` `يومية` `تحويل` `سرقة` `مصرف` `سحب` `متجر` `شراء`', inline: false },
         { name: '📊 مستويات', value: '`مستوى` `ترتيب`', inline: false },
