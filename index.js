@@ -13,11 +13,11 @@ const OWNER_ID = process.env.OWNER_ID || null;
 
 // ====================== أقسام التذاكر ======================
 const TICKET_SECTIONS = {
-  'support': { label: '💻 دعم فني', description: 'مشاكل تقنية أو أعطال', emoji: '🛠️', color: 0x3498db },
-  'suggestion': { label: '💡 اقتراح', description: 'اقتراح لتطوير السيرفر', emoji: '📝', color: 0x2ecc71 },
-  'complaint': { label: '📢 شكوى', description: 'شكوى ضد عضو أو إداري', emoji: '⚖️', color: 0xe74c3c },
-  'partnership': { label: '🤝 تعاون', description: 'عرض تعاون أو شراكة', emoji: '📩', color: 0xf1c40f },
-  'other': { label: '📌 أخرى', description: 'أي طلب آخر', emoji: '📂', color: 0x95a5a6 }
+  'support': { label: '💻 دعم فني', description: 'مشاكل تقنية أو أعطال', emoji: '🛠️', color: 0x2b2d31 },
+  'suggestion': { label: '💡 اقتراح', description: 'اقتراح لتطوير السيرفر', emoji: '📝', color: 0x2b2d31 },
+  'complaint': { label: '📢 شكوى', description: 'شكوى ضد عضو أو إداري', emoji: '⚖️', color: 0x2b2d31 },
+  'partnership': { label: '🤝 تعاون', description: 'عرض تعاون أو شراكة', emoji: '📩', color: 0x2b2d31 },
+  'other': { label: '📌 أخرى', description: 'أي طلب آخر', emoji: '📂', color: 0x2b2d31 }
 };
 
 // ====================== قاعدة البيانات ======================
@@ -306,7 +306,7 @@ async function logToChannel(guildId, embedData) {
   const channel = client.channels.cache.get(config.log_channel);
   if (!channel) return;
   const embed = new EmbedBuilder()
-    .setColor(embedData.color || 0x00ccff)
+    .setColor(embedData.color || 0x2b2d31)
     .setTitle(embedData.title || '📋 سجل')
     .setDescription(embedData.description || '')
     .setTimestamp()
@@ -355,7 +355,7 @@ client.on('messageCreate', async (message) => {
             const embed = new EmbedBuilder()
               .setDescription(replyContent)
               .setImage(config.auto_line_image)
-              .setColor(0x00ff00);
+              .setColor(0x2b2d31);
             await message.reply({ embeds: [embed] });
           } else {
             await message.reply(replyContent);
@@ -440,7 +440,7 @@ client.on('messageDelete', async (message) => {
   if (!logChannel) return;
   const embed = new EmbedBuilder()
     .setTitle('🗑️ حذف رسالة')
-    .setColor(0xff0000)
+    .setColor(0x2b2d31)
     .setTimestamp(message.createdAt)
     .addFields(
       { name: 'المستخدم', value: message.author ? message.author.tag : 'غير معروف', inline: true },
@@ -459,7 +459,7 @@ client.on('guildMemberAdd', async (member) => {
       const embed = new EmbedBuilder()
         .setTitle('👋 مرحباً!')
         .setDescription(config.welcome_message || `أهلاً ${member} في السيرفر!`)
-        .setColor(0x00ff00)
+        .setColor(0x2b2d31)
         .setTimestamp(member.joinedAt)
         .setThumbnail(member.user.displayAvatarURL());
       if (config.welcome_image_url) embed.setImage(config.welcome_image_url);
@@ -475,7 +475,7 @@ client.on('guildMemberAdd', async (member) => {
     if (logChannel) {
       const embed = new EmbedBuilder()
         .setTitle('👤 عضو جديد')
-        .setColor(0x00ff00)
+        .setColor(0x2b2d31)
         .setTimestamp(member.joinedAt)
         .setThumbnail(member.user.displayAvatarURL())
         .addFields(
@@ -494,7 +494,7 @@ client.on('guildMemberRemove', async (member) => {
   if (!logChannel) return;
   const embed = new EmbedBuilder()
     .setTitle('🚫 عضو غادر')
-    .setColor(0xffaa00)
+    .setColor(0x2b2d31)
     .setTimestamp()
     .setThumbnail(member.user.displayAvatarURL())
     .addFields({ name: 'الاسم', value: member.user.tag, inline: true });
@@ -568,7 +568,7 @@ client.on('interactionCreate', async (interaction) => {
       const welcomeEmbed = new EmbedBuilder()
         .setTitle('🎫 تذكرة جديدة')
         .setDescription(`مرحباً ${member}!\n**قم بكتابة مشكلتك** بالتفصيل في هذه القناة، وسيقوم فريق الدعم بالرد عليك قريباً.`)
-        .setColor(0x00ff00)
+        .setColor(0x2b2d31)
         .setTimestamp()
         .setFooter({ text: `🆔 معرف التذكرة: ${channel.id}` });
 
@@ -581,11 +581,11 @@ client.on('interactionCreate', async (interaction) => {
           new ButtonBuilder()
             .setCustomId('claim_ticket')
             .setLabel('📥 استلام التذكرة')
-            .setStyle(ButtonStyle.Primary),
+            .setStyle(ButtonStyle.Secondary),
           new ButtonBuilder()
             .setCustomId('close_ticket')
             .setLabel('🔒 إغلاق التذكرة')
-            .setStyle(ButtonStyle.Danger)
+            .setStyle(ButtonStyle.Secondary)
         );
 
       let supportMention = '';
@@ -605,7 +605,7 @@ client.on('interactionCreate', async (interaction) => {
         .setTitle('✅ تم فتح تذكرتك')
         .setDescription(`تم فتح تذكرة في سيرفر **${guild.name}**`)
         .addFields({ name: '🔗 الرابط', value: `[اضغط هنا للذهاب إلى التذكرة](${channel.url})`, inline: false })
-        .setColor(0x00ff00)
+        .setColor(0x2b2d31)
         .setTimestamp();
       await member.send({ embeds: [dmEmbed] }).catch(() => {});
 
@@ -613,7 +613,7 @@ client.on('interactionCreate', async (interaction) => {
       logToChannel(guild.id, {
         title: '🎫 فتح تذكرة (بسيط)',
         description: `**المستخدم:** ${member.user.tag}\n**القناة:** ${channel.name}`,
-        color: 0x00ff00,
+        color: 0x2b2d31,
         footer: `بواسطة ${member.user.tag}`
       });
     } catch (error) {
@@ -706,7 +706,7 @@ client.on('interactionCreate', async (interaction) => {
     const welcomeEmbed = new EmbedBuilder()
       .setTitle(`🎫 تذكرة جديدة - ${sectionData.label}`)
       .setDescription(`مرحباً ${member}! تم إنشاء تذكرتك بنجاح.\nالقسم: **${sectionData.label}**\nالرجاء شرح مشكلتك بالتفصيل، وسيرد عليك فريق الدعم قريباً.`)
-      .setColor(sectionData.color || 0x00ff00)
+      .setColor(0x2b2d31)
       .setTimestamp()
       .setFooter({ text: `🆔 معرف التذكرة: ${channel.id}` });
 
@@ -719,11 +719,11 @@ client.on('interactionCreate', async (interaction) => {
         new ButtonBuilder()
           .setCustomId('claim_ticket')
           .setLabel('📥 استلام التذكرة')
-          .setStyle(ButtonStyle.Primary),
+          .setStyle(ButtonStyle.Secondary),
         new ButtonBuilder()
           .setCustomId('close_ticket')
           .setLabel('🔒 إغلاق التذكرة')
-          .setStyle(ButtonStyle.Danger)
+          .setStyle(ButtonStyle.Secondary)
       );
 
     let sectionMention = '';
@@ -747,7 +747,7 @@ client.on('interactionCreate', async (interaction) => {
         { name: '🆔 القناة', value: `#${channel.name}`, inline: true },
         { name: '🔗 الرابط', value: `[اضغط هنا للذهاب إلى التذكرة](${channel.url})`, inline: false }
       )
-      .setColor(0x00ff00)
+      .setColor(0x2b2d31)
       .setTimestamp();
 
     await member.send({ embeds: [dmEmbed] }).catch(() => {});
@@ -791,7 +791,7 @@ client.on('messageCreate', async (message) => {
     logToChannel(message.guild.id, {
       title: '🛡️ تعيين متحكم',
       description: `${message.author} جعل ${member} متحكماً.`,
-      color: 0x00ff00,
+      color: 0x2b2d31,
       footer: `بواسطة ${message.author.tag}`
     });
   }
@@ -811,7 +811,7 @@ client.on('messageCreate', async (message) => {
     logToChannel(message.guild.id, {
       title: '🛡️ إلغاء متحكم',
       description: `${message.author} ألغى صلاحية ${member}.`,
-      color: 0xff0000,
+      color: 0x2b2d31,
       footer: `بواسطة ${message.author.tag}`
     });
   }
@@ -825,7 +825,7 @@ client.on('messageCreate', async (message) => {
     const embed = new EmbedBuilder()
       .setTitle('🛡️ قائمة المتحكمين')
       .setDescription(list)
-      .setColor(0x00ff00)
+      .setColor(0x2b2d31)
       .setTimestamp();
     message.channel.send({ embeds: [embed] });
   }
@@ -837,12 +837,12 @@ client.on('messageCreate', async (message) => {
     if (!member) return message.reply('⚠️ منشن العضو.');
     const reason = args.join(' ') || 'لا يوجد سبب';
     await member.ban({ reason });
-    const embed = new EmbedBuilder().setTitle('✅ تم الحظر').setColor(0xff0000).setDescription(`${member.user.tag} تم حظره بسبب: ${reason}`);
+    const embed = new EmbedBuilder().setTitle('✅ تم الحظر').setColor(0x2b2d31).setDescription(`${member.user.tag} تم حظره بسبب: ${reason}`);
     message.channel.send({ embeds: [embed] });
     logToChannel(message.guild.id, {
       title: '🔨 حظر',
       description: `**المنفذ:** ${message.author}\n**المستهدف:** ${member.user.tag}\n**السبب:** ${reason}`,
-      color: 0xff0000,
+      color: 0x2b2d31,
       footer: `بواسطة ${message.author.tag}`
     });
   }
@@ -853,12 +853,12 @@ client.on('messageCreate', async (message) => {
     if (!member) return message.reply('⚠️ منشن العضو.');
     const reason = args.join(' ') || 'لا يوجد سبب';
     await member.kick(reason);
-    const embed = new EmbedBuilder().setTitle('✅ تم الطرد').setColor(0xff8800).setDescription(`${member.user.tag} تم طرده بسبب: ${reason}`);
+    const embed = new EmbedBuilder().setTitle('✅ تم الطرد').setColor(0x2b2d31).setDescription(`${member.user.tag} تم طرده بسبب: ${reason}`);
     message.channel.send({ embeds: [embed] });
     logToChannel(message.guild.id, {
       title: '🚪 طرد',
       description: `**المنفذ:** ${message.author}\n**المستهدف:** ${member.user.tag}\n**السبب:** ${reason}`,
-      color: 0xff8800,
+      color: 0x2b2d31,
       footer: `بواسطة ${message.author.tag}`
     });
   }
@@ -886,7 +886,7 @@ client.on('messageCreate', async (message) => {
       updateGuildConfig(message.guild.id, { mute_role_id: muteRole.id });
     }
     await member.roles.add(muteRole, reason);
-    const embed = new EmbedBuilder().setTitle('🔇 تم الكتم').setColor(0xffaa00).setDescription(`${member.user.tag} كتم لمدة ${duration} بسبب: ${reason}`);
+    const embed = new EmbedBuilder().setTitle('🔇 تم الكتم').setColor(0x2b2d31).setDescription(`${member.user.tag} كتم لمدة ${duration} بسبب: ${reason}`);
     message.channel.send({ embeds: [embed] });
     setTimeout(async () => {
       await member.roles.remove(muteRole);
@@ -895,7 +895,7 @@ client.on('messageCreate', async (message) => {
     logToChannel(message.guild.id, {
       title: '🔇 كتم',
       description: `**المنفذ:** ${message.author}\n**المستهدف:** ${member.user.tag}\n**المدة:** ${duration}\n**السبب:** ${reason}`,
-      color: 0xffaa00,
+      color: 0x2b2d31,
       footer: `بواسطة ${message.author.tag}`
     });
   }
@@ -909,7 +909,7 @@ client.on('messageCreate', async (message) => {
       .run(member.id, message.guild.id, reason, message.author.id, new Date().toISOString());
     const row = db.prepare('SELECT COUNT(*) as count FROM warns WHERE user_id = ? AND guild_id = ?').get(member.id, message.guild.id);
     const count = row ? row.count : 0;
-    const embed = new EmbedBuilder().setTitle('⚠️ تحذير').setColor(0xffdd00).setDescription(`${member.user.tag} تم تحذيره بسبب: ${reason}\nإجمالي التحذيرات: ${count}`);
+    const embed = new EmbedBuilder().setTitle('⚠️ تحذير').setColor(0x2b2d31).setDescription(`${member.user.tag} تم تحذيره بسبب: ${reason}\nإجمالي التحذيرات: ${count}`);
     message.channel.send({ embeds: [embed] });
     try {
       await member.send(`⚠️ تم تحذيرك في سيرفر **${message.guild.name}**\nالسبب: ${reason}\nإجمالي تحذيراتك: ${count}`);
@@ -930,7 +930,7 @@ client.on('messageCreate', async (message) => {
     logToChannel(message.guild.id, {
       title: '⚠️ تحذير',
       description: `**المنفذ:** ${message.author}\n**المستهدف:** ${member.user.tag}\n**السبب:** ${reason}\n**إجمالي التحذيرات:** ${count}`,
-      color: 0xffdd00,
+      color: 0x2b2d31,
       footer: `بواسطة ${message.author.tag}`
     });
   }
@@ -946,7 +946,7 @@ client.on('messageCreate', async (message) => {
     logToChannel(message.guild.id, {
       title: '🗑️ مسح',
       description: `**المنفذ:** ${message.author}\n**القناة:** ${message.channel.name}\n**عدد الرسائل:** ${count}`,
-      color: 0x00ccff,
+      color: 0x2b2d31,
       footer: `بواسطة ${message.author.tag}`
     });
   }
@@ -958,7 +958,7 @@ client.on('messageCreate', async (message) => {
     logToChannel(message.guild.id, {
       title: '🔒 قفل قناة',
       description: `**المنفذ:** ${message.author}\n**القناة:** ${message.channel.name}`,
-      color: 0xff0000,
+      color: 0x2b2d31,
       footer: `بواسطة ${message.author.tag}`
     });
   }
@@ -970,7 +970,7 @@ client.on('messageCreate', async (message) => {
     logToChannel(message.guild.id, {
       title: '🔓 فتح قناة',
       description: `**المنفذ:** ${message.author}\n**القناة:** ${message.channel.name}`,
-      color: 0x00ff00,
+      color: 0x2b2d31,
       footer: `بواسطة ${message.author.tag}`
     });
   }
@@ -979,7 +979,7 @@ client.on('messageCreate', async (message) => {
   else if (cmd === 'رصيد') {
     const member = message.mentions.members.first() || message.member;
     const eco = getEconomy(member.id, message.guild.id);
-    const embed = new EmbedBuilder().setTitle(`💰 رصيد ${member.user.username}`).setColor(0xffd700)
+    const embed = new EmbedBuilder().setTitle(`💰 رصيد ${member.user.username}`).setColor(0x2b2d31)
       .setDescription(`الرصيد: ${eco.balance}\nالمصرف: ${eco.bank}`);
     message.channel.send({ embeds: [embed] });
   }
@@ -1065,7 +1065,7 @@ client.on('messageCreate', async (message) => {
   }
 
   else if (cmd === 'متجر') {
-    const embed = new EmbedBuilder().setTitle('🛒 المتجر').setColor(0x00ffaa)
+    const embed = new EmbedBuilder().setTitle('🛒 المتجر').setColor(0x2b2d31)
       .addFields(
         { name: '🎖️ دور VIP', value: '1000 دولار - `!شراء vip`' },
         { name: '🎨 لون مخصص', value: '500 دولار - `!شراء لون #FF00FF`' }
@@ -1103,7 +1103,7 @@ client.on('messageCreate', async (message) => {
     const member = message.mentions.members.first() || message.member;
     const data = getUserLevel(member.id, message.guild.id);
     const nextXP = getLevelXP(data.level);
-    const embed = new EmbedBuilder().setTitle(`📊 مستوى ${member.user.username}`).setColor(0x9b59b6)
+    const embed = new EmbedBuilder().setTitle(`📊 مستوى ${member.user.username}`).setColor(0x2b2d31)
       .addFields(
         { name: 'المستوى', value: `${data.level}`, inline: true },
         { name: 'XP', value: `${data.xp}/${nextXP}`, inline: true },
@@ -1121,7 +1121,7 @@ client.on('messageCreate', async (message) => {
       const name = member ? member.user.username : `مستخدم ${row.user_id}`;
       desc += `#${i+1} ${name} - المستوى ${row.level} (XP: ${row.xp})\n`;
     });
-    const embed = new EmbedBuilder().setTitle('🏆 ترتيب المستويات').setColor(0xffaa00).setDescription(desc);
+    const embed = new EmbedBuilder().setTitle('🏆 ترتيب المستويات').setColor(0x2b2d31).setDescription(desc);
     message.channel.send({ embeds: [embed] });
   }
 
@@ -1135,7 +1135,7 @@ client.on('messageCreate', async (message) => {
     const embed = new EmbedBuilder()
       .setTitle('🎫 نظام التذاكر')
       .setDescription(config.welcome_panel_text || 'اختر القسم المناسب من القائمة المنسدلة أدناه لإنشاء تذكرة.\nسيتم إنشاء قناة خاصة بك وسيرد عليك الفريق قريباً.')
-      .setColor(0x9b59b6)
+      .setColor(0x2b2d31)
       .setFooter({ text: 'سيتم إرسال رابط التذكرة إليك في الخاص' });
 
     if (config.ticket_panel_image) {
@@ -1162,7 +1162,7 @@ client.on('messageCreate', async (message) => {
     logToChannel(message.guild.id, {
       title: '🎫 إنشاء لوحة تذاكر',
       description: `**المنفذ:** ${message.author}`,
-      color: 0x9b59b6,
+      color: 0x2b2d31,
       footer: `بواسطة ${message.author.tag}`
     });
   }
@@ -1188,7 +1188,7 @@ client.on('messageCreate', async (message) => {
         new ButtonBuilder()
           .setCustomId('open_ticket_simple')
           .setLabel('📩 فتح تذكرة')
-          .setStyle(ButtonStyle.Primary)
+          .setStyle(ButtonStyle.Secondary)
       );
 
     await message.channel.send({ embeds: [embed], components: [row] });
@@ -1204,7 +1204,7 @@ client.on('messageCreate', async (message) => {
     logToChannel(message.guild.id, {
       title: '🔒 إغلاق تذكرة',
       description: `**المنفذ:** ${message.author}\n**القناة:** ${channel.name}`,
-      color: 0xff0000,
+      color: 0x2b2d31,
       footer: `بواسطة ${message.author.tag}`
     });
   }
@@ -1218,7 +1218,7 @@ client.on('messageCreate', async (message) => {
     if (!duration || !winners || !prize) return message.reply('⚠️ الصيغة: `!هدية 1d2h 3 جائزة`');
     const secs = parseDuration(duration);
     if (!secs) return message.reply('⚠️ صيغة الوقت غير صحيحة.');
-    const embed = new EmbedBuilder().setTitle(`🎁 هدية: ${prize}`).setColor(0xff69b4)
+    const embed = new EmbedBuilder().setTitle(`🎁 هدية: ${prize}`).setColor(0x2b2d31)
       .setDescription(`الرابحون: ${winners}`)
       .setFooter({ text: `تنتهي بعد ${duration}` })
       .setTimestamp(new Date(Date.now() + secs * 1000));
@@ -1231,7 +1231,7 @@ client.on('messageCreate', async (message) => {
     logToChannel(message.guild.id, {
       title: '🎁 إنشاء هدية',
       description: `**المنفذ:** ${message.author}\n**الجائزة:** ${prize}\n**الرابحون:** ${winners}\n**المدة:** ${duration}`,
-      color: 0xff69b4,
+      color: 0x2b2d31,
       footer: `بواسطة ${message.author.tag}`
     });
   }
@@ -1252,7 +1252,7 @@ client.on('messageCreate', async (message) => {
       logToChannel(message.guild.id, {
         title: '🎭 إضافة رد فعل',
         description: `**المنفذ:** ${message.author}\n**الدور:** ${role.name}\n**الإيموجي:** ${emoji}`,
-        color: 0x00ffaa,
+        color: 0x2b2d31,
         footer: `بواسطة ${message.author.tag}`
       });
     } catch (e) {
@@ -1281,7 +1281,7 @@ client.on('messageCreate', async (message) => {
     const embed = new EmbedBuilder()
       .setTitle(title)
       .setDescription(description)
-      .setColor(0x2ecc71)
+      .setColor(0x2b2d31)
       .setTimestamp();
     const imageMatch = description.match(/(https?:\/\/[^\s]+\.(?:png|jpg|jpeg|gif|webp))/i);
     if (imageMatch) {
@@ -1316,7 +1316,7 @@ client.on('messageCreate', async (message) => {
     const embed = new EmbedBuilder()
       .setTitle(title)
       .setDescription(description)
-      .setColor(0xff5500)
+      .setColor(0x2b2d31)
       .setTimestamp()
       .setFooter({ text: `بواسطة ${message.author.tag}` });
     let mention = '';
@@ -1327,7 +1327,7 @@ client.on('messageCreate', async (message) => {
     logToChannel(message.guild.id, {
       title: '📢 إعلان',
       description: `**المنفذ:** ${message.author}\n**العنوان:** ${title}\n**الوصف:** ${description}`,
-      color: 0xff5500,
+      color: 0x2b2d31,
       footer: `بواسطة ${message.author.tag}`
     });
   }
@@ -1346,7 +1346,7 @@ client.on('messageCreate', async (message) => {
     logToChannel(message.guild.id, {
       title: '📝 كتابة نوت',
       description: `**المنفذ:** ${message.author}\n**المستهدف:** ${member.user.tag}\n**النوت:** ${note}`,
-      color: 0x00ccff,
+      color: 0x2b2d31,
       footer: `بواسطة ${message.author.tag}`
     });
   }
@@ -1362,7 +1362,7 @@ client.on('messageCreate', async (message) => {
         { name: '📅 تاريخ الانضمام', value: member.joinedAt.toDateString(), inline: true },
         { name: '📝 النوت', value: note || 'لا توجد ملاحظة', inline: false }
       )
-      .setColor(0x9b59b6)
+      .setColor(0x2b2d31)
       .setTimestamp();
     message.channel.send({ embeds: [embed] });
   }
@@ -1383,7 +1383,7 @@ client.on('messageCreate', async (message) => {
     logToChannel(message.guild.id, {
       title: '🏰 إنشاء كلان',
       description: `**القائد:** ${message.author}\n**اسم الكلان:** ${name}`,
-      color: 0x00ff00,
+      color: 0x2b2d31,
       footer: `بواسطة ${message.author.tag}`
     });
   }
@@ -1405,7 +1405,7 @@ client.on('messageCreate', async (message) => {
     logToChannel(message.guild.id, {
       title: '➕ إضافة عضو للكلان',
       description: `**المنفذ:** ${message.author}\n**العضو:** ${member.user.tag}\n**الكلان:** ${clan.name}`,
-      color: 0x00ccff,
+      color: 0x2b2d31,
       footer: `بواسطة ${message.author.tag}`
     });
   }
@@ -1425,7 +1425,7 @@ client.on('messageCreate', async (message) => {
     logToChannel(message.guild.id, {
       title: '➖ طرد عضو من الكلان',
       description: `**المنفذ:** ${message.author}\n**العضو:** ${member.user.tag}\n**الكلان:** ${clan.name}`,
-      color: 0xff0000,
+      color: 0x2b2d31,
       footer: `بواسطة ${message.author.tag}`
     });
   }
@@ -1444,7 +1444,7 @@ client.on('messageCreate', async (message) => {
     logToChannel(message.guild.id, {
       title: '👑 تعيين نائب',
       description: `**المنفذ:** ${message.author}\n**النائب:** ${member.user.tag}\n**الكلان:** ${clan.name}`,
-      color: 0xffd700,
+      color: 0x2b2d31,
       footer: `بواسطة ${message.author.tag}`
     });
   }
@@ -1459,7 +1459,7 @@ client.on('messageCreate', async (message) => {
     const embed = new EmbedBuilder()
       .setTitle(`🏰 ${clan.name}`)
       .setDescription(`**القائد:** ${leader ? leader.user.tag : 'غير موجود'}\n**النائب:** ${deputy ? deputy.user.tag : 'لا يوجد'}\n**عدد الأعضاء:** ${members.length}\n**إجمالي EX:** ${totalEx}`)
-      .setColor(0x9b59b6)
+      .setColor(0x2b2d31)
       .setTimestamp();
     message.channel.send({ embeds: [embed] });
   }
@@ -1475,7 +1475,7 @@ client.on('messageCreate', async (message) => {
     logToChannel(message.guild.id, {
       title: '🚪 ترك كلان',
       description: `**العضو:** ${message.author}\n**الكلان:** ${clan.name}`,
-      color: 0xffaa00,
+      color: 0x2b2d31,
       footer: `بواسطة ${message.author.tag}`
     });
   }
@@ -1494,7 +1494,7 @@ client.on('messageCreate', async (message) => {
     logToChannel(message.guild.id, {
       title: '⭐ إعطاء EX',
       description: `**المنفذ:** ${message.author}\n**المستهدف:** ${member.user.tag}\n**المقدار:** +${amount}`,
-      color: 0x00ff00,
+      color: 0x2b2d31,
       footer: `بواسطة ${message.author.tag}`
     });
   }
@@ -1516,7 +1516,7 @@ client.on('messageCreate', async (message) => {
     logToChannel(message.guild.id, {
       title: '⭐ خصم EX',
       description: `**المنفذ:** ${message.author}\n**المستهدف:** ${member.user.tag}\n**المقدار:** -${amount}`,
-      color: 0xff0000,
+      color: 0x2b2d31,
       footer: `بواسطة ${message.author.tag}`
     });
   }
@@ -1530,7 +1530,7 @@ client.on('messageCreate', async (message) => {
       const name = member ? member.user.username : `مستخدم ${row.user_id}`;
       desc += `#${i+1} ${name} - ${row.ex_points} EX\n`;
     });
-    const embed = new EmbedBuilder().setTitle('🏆 ترتيب نقاط EX').setColor(0xffd700).setDescription(desc);
+    const embed = new EmbedBuilder().setTitle('🏆 ترتيب نقاط EX').setColor(0x2b2d31).setDescription(desc);
     message.channel.send({ embeds: [embed] });
   }
 
@@ -1540,7 +1540,7 @@ client.on('messageCreate', async (message) => {
     const sub = args[0]?.toLowerCase();
     const value = args.slice(1).join(' ');
     if (!sub) {
-      const embed = new EmbedBuilder().setTitle('⚙️ أوامر الإعدادات').setColor(0x00ccff)
+      const embed = new EmbedBuilder().setTitle('⚙️ أوامر الإعدادات').setColor(0x2b2d31)
         .addFields(
           { name: '🎫 أدوار الأقسام', value: '`دور_قسم الدعم @دور` `دور_قسم اقتراح @دور` `دور_قسم شكوى @دور` `دور_قسم تعاون @دور` `دور_قسم أخرى @دور`', inline: false },
           { name: '📋 أخرى', value: '`سجلات` `ترحيب` `رسالة_ترحيب` `صورة_ترحيب` `نص_بانل` `روم_ليفل` `أوتو_لاين` `صورة_اوتولاين` `دور_كتم` `دور_دخول` `حد_كتم` `حد_طرد` `رتبة_مستوى` `حذف_رتبة_مستوى` `صورة_بانل` `صورة_تذكرة` `إيقاف_أوتو_لاين`', inline: false },
@@ -1563,7 +1563,7 @@ client.on('messageCreate', async (message) => {
       logToChannel(message.guild.id, {
         title: '🎫 تعيين دور قسم',
         description: `**المنفذ:** ${message.author}\n**القسم:** ${TICKET_SECTIONS[mappedKey].label}\n**الدور:** ${role.name}`,
-        color: 0x00ccff,
+        color: 0x2b2d31,
         footer: `بواسطة ${message.author.tag}`
       });
     } else if (sub === 'سجلات') {
@@ -1661,7 +1661,7 @@ client.on('messageCreate', async (message) => {
 
   // ========== مساعدة ==========
   else if (cmd === 'مساعدة') {
-    const embed = new EmbedBuilder().setTitle('📖 قائمة الأوامر الرئيسية').setColor(0x00ff00)
+    const embed = new EmbedBuilder().setTitle('📖 قائمة الأوامر الرئيسية').setColor(0x2b2d31)
       .addFields(
         { name: '👑 نظام التحكم', value: '`متحكم @شخص`  `الغاء_متحكم @شخص`  `قائمة_المتحكمين`', inline: false },
         { name: '🏰 الكلانات وEX', value: '`انشاء_كلان` `اضافة_عضو` `طرد_عضو` `تعيين_نائب` `معلومات_كلان` `ترك_كلان`  `اعطاء_ex` `خصم_ex` `ترتيب_ex`', inline: false },
@@ -1685,7 +1685,7 @@ client.on('messageCreate', async (message) => {
   }
 
   else if (cmd === 'سيرفر') {
-    const embed = new EmbedBuilder().setTitle(message.guild.name).setColor(0x2ecc71)
+    const embed = new EmbedBuilder().setTitle(message.guild.name).setColor(0x2b2d31)
       .addFields(
         { name: '👥 الأعضاء', value: `${message.guild.memberCount}`, inline: true },
         { name: '💬 القنوات', value: `${message.guild.channels.cache.size}`, inline: true },
